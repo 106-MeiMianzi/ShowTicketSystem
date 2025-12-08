@@ -1,0 +1,11 @@
+### 1. 首次注册：应该成功
+POST http://localhost:8080/api/user/register
+Content-Type: application/x-www-form-urlencoded
+
+username=testuser1&password=123456
+
+### 2. 重复注册：应该失败
+POST http://localhost:8080/api/user/register
+Content-Type: application/x-www-form-urlencoded
+
+username=testuser1&password=123456

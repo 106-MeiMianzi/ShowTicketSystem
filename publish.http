@@ -1,5 +1,16 @@
-### GET request to example server
-GET https://examples.http-client.intellij.net/get
-    ?generated-in=IntelliJ IDEA
+### 1. 发布一场成功的演唱会
+# POST /api/show/publish
+# 注意：startTime 和 endTime 的格式必须是 ISO 8601 格式，例如：2025-12-01T20:00:00
 
-###
+POST http://localhost:8080/api/show/publish
+Content-Type: application/x-www-form-urlencoded
+
+name=周杰伦2026世界巡回演唱会&venue=上海体育场&startTime=2026-05-20T19:30:00&endTime=2026-05-20T22:30:00&totalTickets=10000&price=580.00
+
+### 2. 查询所有已发布的演出列表 (新增)
+# GET /api/show/list
+
+GET http://localhost:8080/api/show/list
+
+### 检查当前库存状态
+GET http://localhost:8080/api/show/list

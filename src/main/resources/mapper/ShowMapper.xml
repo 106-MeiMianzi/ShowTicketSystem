@@ -1,6 +1,72 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://www.springframework.org/schema/beans"
-       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mianzi.showticketsystem.mapper.ShowMapper">
 
-</beans>
+    <insert id="insert" keyProperty="id" useGeneratedKeys="true">
+        INSERT INTO `show` (
+            name, venue, start_time, end_time, total_tickets,
+            available_tickets, price, status, create_time, update_time
+        ) VALUES (
+                     #{name}, #{venue}, #{startTime}, #{endTime}, #{totalTickets},
+                     #{availableTickets}, #{price}, #{status}, #{createTime}, #{updateTime}
+                 )
+    </insert>
+    <select id="findAll" resultType="com.mianzi.showticketsystem.model.entity.Show">
+        SELECT
+            id, name, venue, start_time, end_time, total_tickets,
+            available_tickets, price, status, create_time, update_time
+        FROM `show`
+        WHERE status = 1 -- 只显示状态为正常的演出
+        ORDER BY start_time ASC
+    </select>
+    <update id="updateStock">
+        UPDATE `show`
+        SET
+            available_tickets = available_tickets - #{quantity},
+            update_time = NOW()
+        WHERE
+            id = #{showId}
+          AND available_tickets >= #{quantity}
+          AND status = 1
+    </update>
+
+    <select id="getById" resultType="com.mianzi.showticketsystem.model.entity.Show">
+        SELECT
+            id, name, venue, start_time, end_time, total_tickets,
+            available_tickets, price, status, create_time, update_time
+        FROM `show`
+        WHERE id = #{id} AND status = 1
+    </select>
+
+    <update id="addStock">
+        UPDATE `show`
+        SET
+            available_tickets = available_tickets + #{quantity},
+            update_time = NOW()
+        WHERE
+            id = #{showId}
+          AND status = 1
+    </update>
+
+    <update id="update">
+        UPDATE `show`
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="venue != null">venue = #{venue},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="totalTickets != null">total_tickets = #{totalTickets},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM `show`
+        WHERE id = #{id}
+    </delete>
+
+</mapper>

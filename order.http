@@ -1,5 +1,250 @@
-### GET request to example server
-GET https://examples.http-client.intellij.net/get
-    ?generated-in=IntelliJ IDEA
+### 1. 成功预订测试：购买 2 张票
+POST http://localhost:8080/api/order/create
+Content-Type: application/x-www-form-urlencoded
 
-###
+userId=1&showId=1&quantity=2
+
+### 2. 检查库存：应该减少 2 张 (9998)
+GET http://localhost:8080/api/show/list
+
+### 3. 失败预订测试：购买 10000 张票 (库存不足)
+POST http://localhost:8080/api/order/create
+Content-Type: application/x-www-form-urlencoded
+
+userId=2&showId=1&quantity=10000
+
+### 4. 成功查询订单详情 (用户 1 查询自己的订单)
+# GET /api/order/details
+
+GET http://localhost:8080/api/order/details?orderId=1&userId=1
+
+---
+
+### 5. 失败查询订单详情 (用户 2 尝试查询订单 1)
+# 预期：失败，显示无权限或订单不存在
+
+GET http://localhost:8080/api/order/details?orderId=1&userId=2
+
+### 6. 成功取消订单 (用户 1 取消订单 1)
+# 预期结果：成功取消，库存返还 2 张 (9998 -> 10000)
+
+POST http://localhost:8080/api/order/cancel
+Content-Type: application/x-www-form-urlencoded
+
+orderId=1&userId=1
+
+---
+
+### 7. 检查库存 (确认库存是否为 10000)
+# GET /api/show/list
+
+GET http://localhost:8080/api/show/list
+
+---
+
+### 8. 失败取消订单 (非订单用户取消)
+# 预期结果：失败，权限不足
+
+POST http://localhost:8080/api/order/cancel
+Content-Type: application/x-www-form-urlencoded
+
+orderId=1&userId=2
+
+### 9. 创建新订单用于支付测试
+POST http://localhost:8080/api/order/create
+Content-Type: application/x-www-form-urlencoded
+
+userId=1&showId=1&quantity=1
+
+### 10. 成功支付订单 (将订单 ID 2 状态从 1 变为 2)
+# 预期结果：支付成功
+
+POST http://localhost:8080/api/order/pay
+Content-Type: application/x-www-form-urlencoded
+
+orderId=2&userId=1
+
+---
+
+### 11. 检查订单详情 (确认订单 2 状态和 payTime)
+# GET /api/order/details
+
+GET http://localhost:8080/api/order/details?orderId=2&userId=1
+
+---
+
+### 12. 失败支付测试 (尝试重复支付)
+# 预期结果：失败，因为订单状态已经是 2 (已支付)
+
+POST http://localhost:8080/api/order/pay
+Content-Type: application/x-www-form-urlencoded
+
+orderId=2&userId=1
+
+### 13. 查询用户 1 的订单列表 (使用默认分页参数)
+# 预期：返回订单 2 和订单 1，总数为 2
+
+GET http://localhost:8080/api/order/list?userId=1
+
+---
+
+### 14. 分页查询，每页 1 条 (查询第 1 页)
+# 预期：返回最新的订单（订单 2）
+
+GET http://localhost:8080/api/order/list?userId=1&pageNum=1&pageSize=1
+
+---
+
+### 15. 分页查询，每页 1 条 (查询第 2 页)
+# 预期：返回较早的订单（订单 1）
+
+GET http://localhost:8080/api/order/list?userId=1&pageNum=2&pageSize=1
+
+### 16. 管理端 - 更新演出信息 (PUT)
+# 将 ID 为 1 的演出名称和价格进行更新
+
+PUT http://localhost:8080/api/show/update
+Content-Type: application/json
+
+{
+  "id": 1,
+  "name": "周杰伦2026世界巡回演唱会 - 升级版",
+  "price": 680.00
+}
+
+---
+
+### 17. 检查演出信息是否更新
+# 预期：名称和价格更新
+
+GET http://localhost:8080/api/show/list
+
+---
+
+### 18. 管理端 - 删除演出信息 (DELETE)
+# 预期：演出 ID=1 被删除
+
+DELETE http://localhost:8080/api/show/delete?id=1
+
+---
+
+### 19. 检查演出是否已被删除
+# 预期：列表为空或 ID=1 不存在
+
+GET http://localhost:8080/api/show/list
+
+### 20. 管理端 - 查询所有订单列表 (使用默认分页参数)
+# 预期：返回订单 2 和订单 1，总数为 2
+
+GET http://localhost:8080/api/order/admin/list
+
+---
+
+### 21. 管理端 - 分页查询，每页 1 条 (查询第 2 页)
+# 预期：返回较早的订单（订单 1），且包含所有字段（尤其是 userId）
+
+GET http://localhost:8080/api/order/admin/list?pageNum=2&pageSize=1
+
+### 22. 管理端 - 手动将订单 1 (已取消) 恢复为待支付 (状态 1)
+# 预期：成功更新，返回成功信息
+
+PUT http://localhost:8080/api/order/admin/status?orderId=1&newStatus=1
+
+---
+
+### 23. 检查订单 1 状态
+# 预期：订单 1 的 status 变为 1
+
+GET http://localhost:8080/api/order/details?orderId=1&userId=1
+
+---
+
+### 24. 管理端 - 手动将订单 2 (已支付) 强制改为已完成 (假设状态 3)
+# 预期：成功更新，返回成功信息
+
+PUT http://localhost:8080/api/order/admin/status?orderId=2&newStatus=3
+
+---
+
+### 25. 检查订单 2 状态
+# 预期：订单 2 的 status 变为 3
+
+GET http://localhost:8080/api/order/details?orderId=2&userId=1
+
+### 26. 用户登录并获取 JWT Token (再次运行)
+# 预期：返回一个新的以 Bearer 开头的长字符串 (JWT Token)
+POST http://localhost:8080/api/user/login
+Content-Type: application/x-www-form-urlencoded
+
+username=user1&password=123456
+
+### 27. 用户注册 (确保 user1 存在)
+# 预期：返回 "注册成功！"
+POST http://localhost:8080/api/user/register
+Content-Type: application/x-www-form-urlencoded
+
+username=user1&password=123456
+
+### 28. 最终验证订单详情接口 (安全)
+# 预期：HTTP 200，返回订单 ID=1 的详情 JSON
+GET http://localhost:8080/api/order/details?orderId=1
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJpc0FkbWluIjpmYWxzZSwidXNlcklkIjoyLCJzdWIiOiIyIiwiaWF0IjoxNzYyODgwMjc1LCJleHAiOjE3NjM0ODUwNzV9.2n-XLxhuWmL9d_3Bni2Q7ZTsOX1Pc6hJPhmIP_LCBjE
+
+### 29. 测试无 Token 访问 (安全性)
+# 目的：确保在无 Token 的情况下被过滤器拦截
+# 预期：HTTP 401 Unauthorized
+GET http://localhost:8080/api/order/details?orderId=1
+
+### 30. 测试普通用户访问管理员接口 (权限校验)
+# 预期：HTTP 200，但返回 PageResult JSON，其中 records 列表为空，total=0
+GET http://localhost:8080/api/order/admin/all?pageNum=1&pageSize=10
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJpc0FkbWluIjpmYWxzZSwidXNlcklkIjoyLCJzdWIiOiIyIiwiaWF0IjoxNzYyODgwMjc1LCJleHAiOjE3NjM0ODUwNzV9.2n-XLxhuWmL9d_3Bni2Q7ZTsOX1Pc6hJPhmIP_LCBjE
+
+### 31. 用户 2 创建新订单 (抢票)
+# 目的：确保用户 2 有自己的订单用于查询。假设 showId=1, quantity=1。
+# 预期：返回新的 Order JSON
+POST http://localhost:8080/api/order/create
+Content-Type: application/x-www-form-urlencoded
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJpc0FkbWluIjpmYWxzZSwidXNlcklkIjoyLCJzdWIiOiIyIiwiaWF0IjoxNzYyODgwMjc1LCJleHAiOjE3NjM0ODUwNzV9.2n-XLxhuWmL9d_3Bni2Q7ZTsOX1Pc6hJPhmIP_LCBjE
+
+showId=1&quantity=1
+
+### 32. 查询新创建的订单详情 (最终验证)
+# 目的：确保用户 2 能查询到属于自己的订单。
+# 预期：HTTP 200，返回订单详情 JSON
+GET http://localhost:8080/api/order/details?orderId=ORDER_NEW_ID
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJpc0FkbWluIjpmYWxzZSwidXNlcklkIjoyLCJzdWIiOiIyIiwiaWF0IjoxNzYyODgwMjc1LCJleHAiOjE3NjM0ODUwNzV9.2n-XLxhuWmL9d_3Bni2Q7ZTsOX1Pc6hJPhmIP_LCBjE
+
+### 33. 检查演出列表和库存
+GET http://localhost:8080/api/show/list?pageNum=1&pageSize=1
+
+### 34. 用户 ID=2 创建新订单
+# 预期：返回新创建的订单 JSON
+POST http://localhost:8080/api/order/create
+Content-Type: application/x-www-form-urlencoded
+
+showId=2&quantity=1&userId=2
+
+### 35. 查询订单详情 (用户 ID=2 查自己的订单)
+# 使用新订单 ID 3
+GET http://localhost:8080/api/order/details?orderId=3&userId=2
+
+### 36. 检查 showId=1 的库存
+GET http://localhost:8080/api/show/details?showId=1
+
+### 37. 管理员增加 showId=1 的库存
+POST http://localhost:8080/api/show/admin/update
+Content-Type: application/x-www-form-urlencoded
+
+showId=1&availableTickets=100
+
+### 38. 发布新的演出活动 (创建 showId=2)
+# 假设这是第一个发布的演出，ID 可能会是 1 或 2，我们假设为 2
+POST http://localhost:8080/api/show/publish
+Content-Type: application/x-www-form-urlencoded
+
+name=周杰伦演唱会&venue=国家体育场&startTime=2025-12-30T19:30:00&endTime=2025-12-30T22:30:00&totalTickets=1000&price=100.00
+
+### 39. 查询用户 ID=2 的订单列表
+# 预期返回包含订单 ID=3 的列表
+GET http://localhost:8080/api/order/list?userId=2&pageNum=1&pageSize=10
