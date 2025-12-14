@@ -12,6 +12,10 @@ import java.util.List; // 确保导入了 List
 /**
  * ShowService 接口的实现类
  */
+//当 Spring Boot 启动时会进行组件扫描
+//一旦发现 OrderServiceImpl 类上有 @Service 注解
+//Spring 就会自动创建一个这个类的实例，并将其存储在 IOC 容器（中央管理系统）中。
+//这个实例(Bean)准备就绪，可以被其他组件通过 @Autowired 来注入和使用
 @Service // 标记这是一个 Spring Service 组件
 public class ShowServiceImpl implements ShowService {
 
@@ -26,37 +30,36 @@ public class ShowServiceImpl implements ShowService {
      */
     @Override
     public boolean publishShow(Show show) {
-        // 1. 设置系统生成的或业务相关的默认值
         LocalDateTime now = LocalDateTime.now();
 
-        // 确保 availableTickets 等于 totalTickets
+        //初始化:确保可用/剩余票数等于总票数
         show.setAvailableTickets(show.getTotalTickets());
 
-        // 设置状态为正常可售
+        //设置状态为正常可售
         show.setStatus(1);
 
-        // 设置创建和更新时间
+        //设置创建和更新时间
         show.setCreateTime(now);
         show.setUpdateTime(now);
 
-        // 2. 插入数据库
+        //插入数据库
         int result = showMapper.insert(show);
 
-        // 3. 返回结果
+        //返回结果
         return result == 1;
-    } // <-- publishShow 方法的结束大括号在这里
+    }
 
     /**
-     * 实现查询所有已发布的演出列表的逻辑 (新增)
+     * 实现查询所有已发布的演出列表的逻辑
      */
-    @Override // <-- findAllShows 方法作为独立方法
+    @Override
     public List<Show> findAllShows() {
-        // 直接调用 Mapper 层的方法，Service 层目前不涉及复杂业务逻辑
+        //调用 Mapper 层的方法
         return showMapper.findAll();
     }
 
     /**
-     * 实现根据ID查询演出详情的逻辑 (新增)
+     * 实现根据ID查询演出详情的逻辑
      */
     @Override
     public Show getShowById(Long id) {
@@ -64,24 +67,25 @@ public class ShowServiceImpl implements ShowService {
     }
 
     /**
-     * 更新演出信息 (新增)
+     * 更新演出信息
      */
     @Override
     public boolean updateShow(Show show) {
-        // 实际项目中，这里需要进行权限校验、字段校验等。
-        // 特别是 totalTickets 的修改逻辑需要确保合理性，但我们这里只做基本更新。
+        // 实际项目中，这里需要进行权限校验、字段校验等
+        // 特别是 totalTickets 的修改逻辑需要确保合理性，但我们这里只做基本更新
         show.setUpdateTime(LocalDateTime.now());
         int updatedRows = showMapper.update(show);
         return updatedRows == 1;
     }
 
     /**
-     * 删除演出信息 (新增)
+     * 删除演出信息
      */
     @Override
     public boolean deleteShow(Long id) {
-        // 实际项目中，删除演出前需要检查是否有未完成的订单关联，如果有则通常不允许删除或执行逻辑删除。
+        //实际项目中，删除演出前需要检查是否有未完成的订单关联
+        //如果有则通常不允许删除或执行逻辑删除。
         int deletedRows = showMapper.delete(id);
         return deletedRows == 1;
     }
-} // <-- ShowServiceImpl 类的结束大括号在这里
+}

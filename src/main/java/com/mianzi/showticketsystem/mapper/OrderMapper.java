@@ -18,14 +18,17 @@ public interface OrderMapper {
     int insert(Order order);
 
     /**
-     * 根据订单ID和用户ID查询订单详情 (新增)
+     * 根据订单ID和用户ID查询订单详情
      * @param id 订单ID
      * @param userId 用户ID
      * @return 订单实体对象
      */
+    //是为了给方法中的多个参数（id 和 userId）取一个明确的“名字”
+    //以便 MyBatis 能够将这些 Java 参数的值
+    //准确地匹配并替换到 XML 文件中的 SQL 语句占位符（#{...}）中
     Order getByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId); // <-- 新增这行
     /**
-     * 更新订单状态，仅允许在特定状态下进行 (新增)
+     * 更新订单状态，仅允许在特定状态下进行
      * @param id 订单ID
      * @param userId 用户ID
      * @param newStatus 新状态
@@ -36,31 +39,31 @@ public interface OrderMapper {
             @Param("id") Long id,
             @Param("userId") Long userId,
             @Param("newStatus") Integer newStatus,
-            @Param("expectedStatus") Integer expectedStatus); // <-- 新增这行
+            @Param("expectedStatus") Integer expectedStatus);
 
     /**
-     * 更新订单状态和支付时间 (新增)
+     * 更新订单状态和支付时间
      * @param id 订单ID
      * @param userId 用户ID
      * @param newStatus 新状态
      * @param expectedStatus 期望的旧状态
      * @return 影响的行数 (1 表示成功更新)
      */
-    int updateStatusAndPayTime( // <-- 新增这个方法
+    int updateStatusAndPayTime(
                                 @Param("id") Long id,
                                 @Param("userId") Long userId,
                                 @Param("newStatus") Integer newStatus,
                                 @Param("expectedStatus") Integer expectedStatus);
 
     /**
-     * 查询指定用户订单的总数 (用于分页) (新增)
+     * 查询指定用户订单的总数 (用于分页)
      * @param userId 用户ID
      * @return 订单总数
      */
-    int countOrdersByUserId(@Param("userId") Long userId); // <-- 新增这行
+    int countOrdersByUserId(@Param("userId") Long userId);
 
     /**
-     * 分页查询指定用户的订单列表 (新增)
+     * 分页查询指定用户的订单列表
      * @param userId 用户ID
      * @param offset 起始记录的偏移量 (例如：(页码-1) * 每页大小)
      * @param limit 每页显示的记录数
@@ -72,13 +75,13 @@ public interface OrderMapper {
             @Param("limit") Integer limit); // <-- 新增这行
 
     /**
-     * 查询所有订单的总数 (用于管理端分页) (新增)
+     * 查询所有订单的总数 (用于管理端分页)
      * @return 订单总数
      */
     int countAllOrders(); // <-- 新增这行
 
     /**
-     * 分页查询所有订单列表 (用于管理端分页) (新增)
+     * 分页查询所有订单列表 (用于管理端分页)
      * @param offset 起始记录的偏移量
      * @param limit 每页显示的记录数
      * @return 订单列表
@@ -88,7 +91,7 @@ public interface OrderMapper {
             @Param("limit") Integer limit); // <-- 新增这行
 
     /**
-     * 【管理端】强制更新订单状态，不检查旧状态和用户ID (新增)
+     * 【管理端】强制更新订单状态，不检查旧状态和用户ID
      * @param orderId 订单ID
      * @param newStatus 新状态
      * @return 影响的行数

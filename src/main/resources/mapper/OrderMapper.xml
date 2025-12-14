@@ -3,10 +3,19 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.mianzi.showticketsystem.mapper.OrderMapper">
 
+<!--    声明这是一个插入数据库的操作-->
+<!--    它与 OrderMapper.java 接口中的 int insert(Order order) 方法绑定-->
+<!--    keyProperty:主键-->
+<!--    useGeneratedKeys:使用生成主键-->
     <insert id="insert" keyProperty="id" useGeneratedKeys="true">
+--     插入订单表
         INSERT INTO `order` (
+--             字段列表： 这是你要为新记录提供值的所有列名。数据将按照这个顺序被填入
             user_id, show_id, quantity, total_price, status, order_time, create_time, update_time
+--                 VALUES 表示接下来会提供与上方字段列表一一对应的值
         ) VALUES (
+--          MyBatis 参数占位符:会从你传入 OrderMapper.insert(Order order) 方法
+--          的那个 Order 实体对象中，通过反射机制自动获取对应属性的值
                      #{userId}, #{showId}, #{quantity}, #{totalPrice}, #{status}, #{orderTime}, #{createTime}, #{updateTime}
                  )
     </insert>

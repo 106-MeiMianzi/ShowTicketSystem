@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 //这是一个组合注解，等同于 @Controller 和 @ResponseBody
 //@Controller：标记此类为一个 Spring MVC 控制器
 //@ResponseBody：表示该类所有方法的返回值将直接作为 HTTP 响应体（通常是 JSON 或字符串）
-//返回给浏览器/前端，而不是作为视图名称
+//返回给浏览器/前端
 @RestController
 //定义了该控制器下所有接口的 根路径
 //意味着在这个类中定义的任何接口，其完整路径都将以 /api/user 开头
@@ -56,7 +56,7 @@ public class UserController {
      */
     //标记该方法处理POST请求
     @PostMapping("/login")
-    //方法签名与参数: 接收用户名和密码
+    //参数: 用户名和密码
     public String login(@RequestParam String username, @RequestParam String password) {
         if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
             return "登录失败：用户名或密码不能为空。";

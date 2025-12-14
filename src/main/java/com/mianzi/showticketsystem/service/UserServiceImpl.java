@@ -35,13 +35,13 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public boolean register(String username, String password) {
-        // 1. 检查用户名是否已存在
+        //检查用户名是否已存在
         if (userMapper.selectByUsername(username) != null) {
-            // 用户名已存在
+            //用户名已存在
             return false;
         }
 
-        // 2. 创建用户实体对象
+        //创建用户实体对象
         //这里使用了 lombok 的 @Accessors(chain=true) 链式调用
         User user = new User()
                 .setUsername(username)
@@ -54,10 +54,10 @@ public class UserServiceImpl implements UserService {
                 .setCreateTime(LocalDateTime.now())
                 .setUpdateTime(LocalDateTime.now());
 
-        // 3. 插入数据库
+        //插入数据库
         int result = userMapper.insert(user);
 
-        // 4. 返回结果
+        //返回结果
         return result == 1;
     }
 
@@ -67,24 +67,23 @@ public class UserServiceImpl implements UserService {
      * @param password 密码
      * @return 返回一个完整的User对象（如果登录成功）或null（如果登录失败，例如密码错误）
      */
-    //编译时检查,这是实现接口的方法
     @Override
     public User login(String username, String password) {
-        // 1. 根据用户名查询用户，这个方法在 UserMapper中
+        //根据用户名查询用户，这个方法在 UserMapper中
         User user = userMapper.selectByUsername(username);
 
-        // 2. 如果用户不存在，登录失败
+        //如果用户不存在，登录失败
         if (user == null) {
             return null;
         }
 
-        // 3. 校验密码
+        //校验密码
         // 注意：实际项目中密码需要加密处理。这里为了简化流程，我们先进行明文比对
         if (user.getPassword().equals(password)) {
-            // 4. 密码匹配，登录成功
+            //密码匹配，登录成功
             return user;
         } else {
-            // 密码不匹配，登录失败
+            //密码不匹配，登录失败
             return null;
         }
     }

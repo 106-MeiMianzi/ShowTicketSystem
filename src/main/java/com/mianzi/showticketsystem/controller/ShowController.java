@@ -11,14 +11,14 @@ import java.util.List;
 import java.math.BigDecimal;
 
 @RestController
-@RequestMapping("/api/show") // 演出接口的基础路径
+@RequestMapping("/api/show") //演出接口的根目录
 public class ShowController {
 
     @Autowired
     private ShowService showService;
 
     /**
-     * 发布新的演出活动 (通常只有管理员可以操作)
+     * 发布新的演出活动 (只有管理员可以操作)
      * 请求路径: POST /api/show/publish
      * 接收参数:
      * @param name 演出名称
@@ -33,18 +33,18 @@ public class ShowController {
     public String publishShow(
             @RequestParam String name,
             @RequestParam String venue,
-            // 注意：使用 @DateTimeFormat 来解析请求中的日期时间字符串
+            //使用 @DateTimeFormat 来解析请求中的日期时间字符串
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
             @RequestParam Integer totalTickets,
-            // 确保使用 BigDecimal 类型来接收价格
+            //使用 BigDecimal 类型来接收价格
             @RequestParam java.math.BigDecimal price)
     {
         if (name == null || name.isEmpty() || totalTickets == null || totalTickets <= 0) {
             return "发布失败：名称或总票数不能为空。";
         }
 
-        // 1. 创建 Show 实体对象
+        //创建 Show 实体对象
         Show show = new Show()
                 .setName(name)
                 .setVenue(venue)
@@ -53,7 +53,7 @@ public class ShowController {
                 .setTotalTickets(totalTickets)
                 .setPrice(price);
 
-        // 2. 调用 Service 层进行业务处理和持久化
+        //调用 Service 层
         boolean success = showService.publishShow(show);
 
         if (success) {
@@ -64,7 +64,7 @@ public class ShowController {
     }
 
     /**
-     * 查询所有已发布的演出列表 (新增)
+     * 查询所有已发布的演出列表
      * 请求路径: GET /api/show/list
      * @return 演出列表 (JSON 格式)
      */
@@ -82,7 +82,6 @@ public class ShowController {
      */
     @GetMapping("/details")
     public Show getShowDetails(@RequestParam Long showId) {
-        // 确保你的 ShowService 有 getShowById(Long id) 方法
         return showService.getShowById(showId);
     }
 
@@ -94,15 +93,15 @@ public class ShowController {
      */
     @PutMapping("/update")
     public String updateShow(@RequestBody Show show) {
-        // 1. 基本校验
+        //基本校验
         if (show.getId() == null) {
             return "更新失败：演出ID不能为空。";
         }
 
-        // 2. 调用 Service 层执行更新
+        //调用 Service 层执行更新
         boolean success = showService.updateShow(show);
 
-        // 3. 返回结果
+        //返回结果
         if (success) {
             return "演出信息更新成功！ID: " + show.getId();
         } else {
@@ -118,18 +117,16 @@ public class ShowController {
      */
     @DeleteMapping("/delete")
     public String deleteShow(@RequestParam Long id) {
-        // 1. 基本校验
+        //基本校验
         if (id == null) {
             return "删除失败：演出ID不能为空。";
         }
 
-        // 2. 调用 Service 层执行删除
+        //调用 Service 层执行删除
         boolean success = showService.deleteShow(id);
 
-        // 3. 返回结果
+        //返回结果
         if (success) {
-            // 注意：我们刚才删除了订单 1，如果你使用物理删除，可能会导致后续订单关联失败
-            // 实际项目中应是逻辑删除。我们暂不处理订单关联问题。
             return "演出信息删除成功！ID: " + id;
         } else {
             return "删除失败！可能原因：演出ID不存在或数据库操作失败。";
