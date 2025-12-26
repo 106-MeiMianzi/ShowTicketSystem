@@ -19,7 +19,7 @@ public class Show {
     private Integer totalTickets; // 总票数
     private Integer availableTickets; // 可用票数 (库存)
     // OR
-    private java.math.BigDecimal price; // <-- ✅ 正确的定义 (推荐)// 票价
+    private java.math.BigDecimal price; // 票价
     private Integer status; // 演出状态 (1: 正常/可售, 0: 已取消/结束)
     private LocalDateTime createTime; // 创建时间
     private LocalDateTime updateTime; // 更新时间

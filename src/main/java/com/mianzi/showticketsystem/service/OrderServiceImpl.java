@@ -225,7 +225,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * 管理端 - 实现分页查询所有订单列表的逻辑 (新增)
+     * 管理端 - 实现分页查询所有订单列表的逻辑
      */
     @Override
     public PageResult<Order> getAllOrderList(int pageNum, int pageSize) {

@@ -7,6 +7,11 @@ import java.util.List; // 导入 List
 /**
  * 订单数据访问接口
  */
+//明确告诉框架：“这个接口是一个数据库映射器，请根据它的方法去匹配相应的SQL语句”
+//自动生成代理对象（实现类）
+//将该接口注册为 Spring 容器中的一个 Bean。
+//这意味着你可以在 Service 层通过 @Autowired 或构造函数直接注入 OrderMapper
+//而不需要自己去写 new OrderMapperImpl()
 @Mapper
 public interface OrderMapper {
 
@@ -98,5 +103,5 @@ public interface OrderMapper {
      */
     int adminUpdateStatus(
             @Param("orderId") Long orderId,
-            @Param("newStatus") Integer newStatus); // <-- 新增此方法
+            @Param("newStatus") Integer newStatus);
 }

@@ -43,7 +43,7 @@ public interface ShowMapper {
      * @param quantity 增加数量
      * @return 影响的行数
      */
-    int addStock(@Param("showId") Long showId, @Param("quantity") Integer quantity); // <-- 确保新增了这行
+    int addStock(@Param("showId") Long showId, @Param("quantity") Integer quantity);
 
     /**
      * 更新演出信息

@@ -92,6 +92,7 @@ public class ShowController {
      * @return 结果信息
      */
     @PutMapping("/update")
+    //@RequestBody表明要用Body-JSON格式传递整个show实体类来测试
     public String updateShow(@RequestBody Show show) {
         //基本校验
         if (show.getId() == null) {
