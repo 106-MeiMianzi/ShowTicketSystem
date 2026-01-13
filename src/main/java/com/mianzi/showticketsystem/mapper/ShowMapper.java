@@ -58,6 +58,83 @@ public interface ShowMapper {
      * @return 影响的行数 (1 表示成功)
      */
     int delete(Long id);
+
+    /**
+     * 根据地区和分类查询演出列表（首页使用）
+     * @param region 地区（可选，如果为null则查询所有地区）
+     * @param category 分类（可选，如果为null则查询所有分类）
+     * @param limit 限制数量
+     * @return 演出列表
+     */
+    List<Show> findByRegionAndCategory(@Param("region") String region,
+                                       @Param("category") String category,
+                                       @Param("limit") Integer limit);
+
+    /**
+     * 搜索演出（匹配演出名或场馆名）
+     * @param keyword 关键词
+     * @return 演出列表
+     */
+    List<Show> searchShows(@Param("keyword") String keyword);
+
+    /**
+     * 条件查询演出（分页）
+     * @param region 城市（可选）
+     * @param category 分类（可选）
+     * @param offset 偏移量
+     * @param limit 每页数量
+     * @return 演出列表
+     */
+    List<Show> findShowsByConditions(@Param("region") String region,
+                                     @Param("category") String category,
+                                     @Param("offset") Integer offset,
+                                     @Param("limit") Integer limit);
+
+    /**
+     * 统计条件查询的演出总数
+     * @param region 城市（可选）
+     * @param category 分类（可选）
+     * @return 总数
+     */
+    long countShowsByConditions(@Param("region") String region,
+                                @Param("category") String category);
+
+    /**
+     * 管理端 - 分页查询演出列表（条件查询）
+     * @param name 演出名称（可选，模糊查询）
+     * @param region 地区（可选）
+     * @param category 分类（可选）
+     * @param status 状态（可选）
+     * @param offset 偏移量
+     * @param limit 每页数量
+     * @return 演出列表
+     */
+    List<Show> findShowsForAdmin(@Param("name") String name,
+                                 @Param("region") String region,
+                                 @Param("category") String category,
+                                 @Param("status") Integer status,
+                                 @Param("offset") Integer offset,
+                                 @Param("limit") Integer limit);
+
+    /**
+     * 管理端 - 统计演出总数（条件查询）
+     * @param name 演出名称（可选）
+     * @param region 地区（可选）
+     * @param category 分类（可选）
+     * @param status 状态（可选）
+     * @return 总数
+     */
+    long countShowsForAdmin(@Param("name") String name,
+                           @Param("region") String region,
+                           @Param("category") String category,
+                           @Param("status") Integer status);
+
+    /**
+     * 管理端 - 根据ID查询演出详情（不限制status）
+     * @param id 演出ID
+     * @return 演出对象
+     */
+    Show getByIdForAdmin(Long id);
 }
 
 

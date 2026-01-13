@@ -4,7 +4,52 @@
 <mapper namespace="com.mianzi.showticketsystem.mapper.UserMapper">
 
     <insert id="insert" parameterType="com.mianzi.showticketsystem.model.entity.User" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO user (username, password) VALUES (#{username}, #{password})
+        INSERT INTO user (username, password, email, phone, real_name, role, status, create_time, update_time)
+        VALUES (#{username}, #{password}, #{email}, #{phone}, #{realName}, #{role}, #{status}, #{createTime}, #{updateTime})
     </insert>
+
+    <update id="update">
+        UPDATE user
+        <set>
+            <if test="username != null">username = #{username},</if>
+            <if test="password != null">password = #{password},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="realName != null">real_name = #{realName},</if>
+            <if test="role != null">role = #{role},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <select id="findUsers" resultType="com.mianzi.showticketsystem.model.entity.User">
+        SELECT
+            id, username, password, email, phone, real_name, role, status, create_time, update_time
+        FROM user
+        <where>
+            <if test="username != null and username != ''">
+                AND username LIKE CONCAT('%', #{username}, '%')
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countUsers" resultType="long">
+        SELECT COUNT(id)
+        FROM user
+        <where>
+            <if test="username != null and username != ''">
+                AND username LIKE CONCAT('%', #{username}, '%')
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
 
 </mapper>

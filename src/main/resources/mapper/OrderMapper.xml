@@ -8,24 +8,27 @@
 <!--    keyProperty:主键-->
 <!--    useGeneratedKeys:使用生成主键-->
     <insert id="insert" keyProperty="id" useGeneratedKeys="true">
---     插入订单表
         INSERT INTO `order` (
---             字段列表： 这是你要为新记录提供值的所有列名。数据将按照这个顺序被填入
-            user_id, show_id, quantity, total_price, status, order_time, create_time, update_time
---                 VALUES 表示接下来会提供与上方字段列表一一对应的值
+            user_id, show_id, out_trade_no, quantity, total_price, status, order_time, create_time, update_time
         ) VALUES (
---          MyBatis 参数占位符:会从你传入 OrderMapper.insert(Order order) 方法
---          的那个 Order 实体对象中，通过反射机制自动获取对应属性的值
-                     #{userId}, #{showId}, #{quantity}, #{totalPrice}, #{status}, #{orderTime}, #{createTime}, #{updateTime}
+                     #{userId}, #{showId}, #{outTradeNo}, #{quantity}, #{totalPrice}, #{status}, #{orderTime}, #{createTime}, #{updateTime}
                  )
     </insert>
 
     <select id="getByIdAndUserId" resultType="com.mianzi.showticketsystem.model.entity.Order">
         SELECT
-            id, user_id, show_id, quantity, total_price, status,
+            id, user_id, show_id, out_trade_no, alipay_trade_no, quantity, total_price, status,
             order_time, pay_time, create_time, update_time
         FROM `order`
         WHERE id = #{id} AND user_id = #{userId}
+    </select>
+
+    <select id="getById" resultType="com.mianzi.showticketsystem.model.entity.Order">
+        SELECT
+            id, user_id, show_id, out_trade_no, alipay_trade_no, quantity, total_price, status,
+            order_time, pay_time, create_time, update_time
+        FROM `order`
+        WHERE id = #{id}
     </select>
 
     <update id="updateStatus">
@@ -59,7 +62,7 @@
 
     <select id="findOrdersByUserId" resultType="com.mianzi.showticketsystem.model.entity.Order">
         SELECT
-            id, user_id, show_id, quantity, total_price, status,
+            id, user_id, show_id, out_trade_no, alipay_trade_no, quantity, total_price, status,
             order_time, pay_time, create_time, update_time
         FROM `order`
         WHERE user_id = #{userId}
@@ -74,7 +77,7 @@
 
     <select id="findAllOrders" resultType="com.mianzi.showticketsystem.model.entity.Order">
         SELECT
-            id, user_id, show_id, quantity, total_price, status,
+            id, user_id, show_id, out_trade_no, alipay_trade_no, quantity, total_price, status,
             order_time, pay_time, create_time, update_time
         FROM `order`
         ORDER BY order_time DESC
@@ -88,5 +91,81 @@
             update_time = NOW()
         WHERE id = #{orderId}
     </update>
+
+    <select id="getByOutTradeNo" resultType="com.mianzi.showticketsystem.model.entity.Order">
+        SELECT
+            id, user_id, show_id, out_trade_no, alipay_trade_no, quantity, total_price, status,
+            order_time, pay_time, create_time, update_time
+        FROM `order`
+        WHERE out_trade_no = #{outTradeNo}
+    </select>
+
+    <update id="updateAlipayTradeNo">
+        UPDATE `order`
+        SET
+            alipay_trade_no = #{alipayTradeNo},
+            update_time = NOW()
+        WHERE id = #{orderId}
+    </update>
+
+    <select id="findOrdersByUserIdWithConditions" resultType="com.mianzi.showticketsystem.model.entity.Order">
+        SELECT
+            id, user_id, show_id, out_trade_no, alipay_trade_no, quantity, total_price, status,
+            order_time, pay_time, create_time, update_time
+        FROM `order`
+        WHERE user_id = #{userId}
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+        ORDER BY order_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countOrdersByUserIdWithConditions" resultType="long">
+        SELECT COUNT(id)
+        FROM `order`
+        WHERE user_id = #{userId}
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <select id="findOrdersForAdmin" resultType="com.mianzi.showticketsystem.model.entity.Order">
+        SELECT
+            id, user_id, show_id, out_trade_no, alipay_trade_no, quantity, total_price, status,
+            order_time, pay_time, create_time, update_time
+        FROM `order`
+        <where>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY order_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countOrdersForAdmin" resultType="long">
+        SELECT COUNT(id)
+        FROM `order`
+        <where>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <select id="findPendingOrdersBefore" resultType="com.mianzi.showticketsystem.model.entity.Order">
+        SELECT
+            id, user_id, show_id, out_trade_no, alipay_trade_no, quantity, total_price, status,
+            order_time, pay_time, create_time, update_time
+        FROM `order`
+        WHERE status = 1 AND order_time &lt;= #{beforeTime}
+    </select>
 
 </mapper>

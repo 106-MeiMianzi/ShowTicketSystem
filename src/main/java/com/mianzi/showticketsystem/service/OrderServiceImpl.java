@@ -80,11 +80,15 @@ public class OrderServiceImpl implements OrderService {
 
         //步骤 3: 创建订单记录
 
-        // 3.1 构建订单对象
+        // 3.1 生成商户订单号（格式：订单前缀 + 时间戳 + 用户ID）
+        String outTradeNo = "ORD" + System.currentTimeMillis() + userId;
+
+        // 3.2 构建订单对象
         LocalDateTime now = LocalDateTime.now();
         Order order = new Order()
                 .setUserId(userId)
                 .setShowId(showId)
+                .setOutTradeNo(outTradeNo)
                 .setQuantity(quantity)
                 .setTotalPrice(totalPrice)
                 .setStatus(1) // 1: 待支付
@@ -109,8 +113,18 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public Order getOrderDetails(Long orderId, Long userId) {
-        // 直接调用 Mapper 层的方法，确保用户只能查询自己的订单
-        return orderMapper.getByIdAndUserId(orderId, userId);
+        if (userId != null) {
+            // 用户端查询，需要校验用户ID
+            Order order = orderMapper.getByIdAndUserId(orderId, userId);
+            // 双重验证：确保返回的订单确实属于当前用户（防止SQL注入或其他安全问题）
+            if (order != null && !order.getUserId().equals(userId)) {
+                return null; // 订单不属于当前用户，返回null
+            }
+            return order;
+        } else {
+            // 管理端查询，只需要订单ID
+            return orderMapper.getById(orderId);
+        }
     }
 
     /**
@@ -126,6 +140,11 @@ public class OrderServiceImpl implements OrderService {
         if (order == null) {
             // 订单不存在或不属于该用户
             return false;
+        }
+
+        // 双重验证：确保返回的订单确实属于当前用户（防止SQL注入或其他安全问题）
+        if (!order.getUserId().equals(userId)) {
+            return false; // 订单不属于当前用户
         }
 
         // 定义订单状态常量
@@ -179,6 +198,20 @@ public class OrderServiceImpl implements OrderService {
         final int STATUS_PENDING_PAYMENT = 1; // 待支付
         final int STATUS_PAID = 2;            // 已支付
 
+        // 先查询订单，验证订单是否存在且属于当前用户
+        Order order = orderMapper.getByIdAndUserId(orderId, userId);
+        if (order == null) {
+            return false; // 订单不存在或不属于该用户
+        }
+        // 双重验证：确保返回的订单确实属于当前用户（防止SQL注入或其他安全问题）
+        if (!order.getUserId().equals(userId)) {
+            return false; // 订单不属于当前用户
+        }
+        // 验证订单状态是否为待支付
+        if (order.getStatus() != STATUS_PENDING_PAYMENT) {
+            return false; // 订单状态不正确
+        }
+
         //调用 Mapper 更新订单状态和支付时间
         //我们使用 updateStatusAndPayTime 方法，它同时确保：
         //1. 只有 status = 1 (待支付) 的订单才会被更新
@@ -205,6 +238,8 @@ public class OrderServiceImpl implements OrderService {
         //参数校验，确保 pageNum 和 pageSize 有效
         if (pageNum <= 0) pageNum = 1;
         if (pageSize <= 0) pageSize = 10;
+        // 页大小上限限制，防止恶意请求导致数据库压力过大
+        if (pageSize > 100) pageSize = 100;
 
         //计算偏移量 offset(就是跳过用户查询的页数的前几页)
         int offset = (pageNum - 1) * pageSize;
@@ -233,6 +268,8 @@ public class OrderServiceImpl implements OrderService {
         // 1. 参数校验，确保 pageNum 和 pageSize 有效
         if (pageNum <= 0) pageNum = 1;
         if (pageSize <= 0) pageSize = 10;
+        // 页大小上限限制，防止恶意请求导致数据库压力过大
+        if (pageSize > 100) pageSize = 100;
 
         // 2. 计算偏移量 offset
         int offset = (pageNum - 1) * pageSize;
@@ -269,5 +306,71 @@ public class OrderServiceImpl implements OrderService {
         //提供一个灵活的、强制性的工具，让管理员能够纠正错误或处理异常情况
         //管理员操作涉及人工介入也就是手动操作，我们暂时只实现状态更新，不自动触发库存逻辑
         return updatedRows > 0;
+    }
+
+    /**
+     * 用户端 - 条件查询订单列表（分页）
+     */
+    @Override
+    public PageResult<Order> getUserOrderListWithConditions(Long userId, Integer status, int pageNum, int pageSize) {
+        // 参数校验
+        if (pageNum <= 0) pageNum = 1;
+        if (pageSize <= 0) pageSize = 10;
+        // 页大小上限限制，防止恶意请求导致数据库压力过大
+        if (pageSize > 100) pageSize = 100;
+
+        // 计算偏移量
+        int offset = (pageNum - 1) * pageSize;
+
+        // 查询总记录数
+        long total = orderMapper.countOrdersByUserIdWithConditions(userId, status);
+
+        // 如果总记录数为 0，直接返回空结果
+        if (total == 0) {
+            return PageResult.build(0, pageNum, pageSize, List.of());
+        }
+
+        // 分页查询列表数据
+        List<Order> records = orderMapper.findOrdersByUserIdWithConditions(userId, status, offset, pageSize);
+
+        // 封装为 PageResult 并返回
+        return PageResult.build(total, pageNum, pageSize, records);
+    }
+
+    /**
+     * 管理端 - 条件查询订单列表（分页）
+     */
+    @Override
+    public PageResult<Order> getAllOrderListWithConditions(Long userId, Integer status, int pageNum, int pageSize) {
+        // 参数校验
+        if (pageNum <= 0) pageNum = 1;
+        if (pageSize <= 0) pageSize = 10;
+        // 页大小上限限制，防止恶意请求导致数据库压力过大
+        if (pageSize > 100) pageSize = 100;
+
+        // 计算偏移量
+        int offset = (pageNum - 1) * pageSize;
+
+        // 查询总记录数
+        long total = orderMapper.countOrdersForAdmin(userId, status);
+
+        // 如果总记录数为 0，直接返回空结果
+        if (total == 0) {
+            return PageResult.build(0, pageNum, pageSize, List.of());
+        }
+
+        // 分页查询列表数据
+        List<Order> records = orderMapper.findOrdersForAdmin(userId, status, offset, pageSize);
+
+        // 封装为 PageResult 并返回
+        return PageResult.build(total, pageNum, pageSize, records);
+    }
+
+    /**
+     * 根据商户订单号查询订单
+     */
+    @Override
+    public Order getOrderByOutTradeNo(String outTradeNo) {
+        return orderMapper.getByOutTradeNo(outTradeNo);
     }
 }

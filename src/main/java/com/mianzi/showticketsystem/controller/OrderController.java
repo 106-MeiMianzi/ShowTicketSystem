@@ -1,10 +1,17 @@
 package com.mianzi.showticketsystem.controller;
 
+import com.mianzi.showticketsystem.model.dto.ApiResponse;
 import com.mianzi.showticketsystem.model.entity.Order;
 import com.mianzi.showticketsystem.model.entity.PageResult;
 import com.mianzi.showticketsystem.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 //定义了该控制器类中所有接口的统一根路径
@@ -22,100 +29,117 @@ public class OrderController {
 
     /**
      * 1. 预订票务 (抢票)
-     * URL 参数：showId, quantity, userId
+     * URL 参数：showId, quantity
+     * userId从JWT Token中获取
+     * @return 如果订单创建成功，返回 {"order": {订单详情JSON对象}}；如果失败，返回 {"order": null}
      */
-    //标记这个 Java 方法处理的是 POST 请求
-    //子路径定义
     @PostMapping("/create")
-    public Order createOrder(
-            //参数获取方式
-            //方法所需的参数（showId、quantity、userId）应该从 HTTP 请求的 查询参数（Query Parameters）
-            //或 表单数据（Form Data） 中获取
-            @RequestParam Long showId,
-            @RequestParam Integer quantity,
-            @RequestParam Long userId) {
-
-        //响应数据类型
-        //因为 Controller 类上有 @RestController 注解
-        //这个 Order 对象会被 Spring Boot 自动转换为 JSON 格式
-        //作为 HTTP 响应体发送给客户端
-        return orderService.createOrder(userId, showId, quantity);
+    public ResponseEntity<Map<String, Object>> createOrder(@RequestParam Long showId,
+                                                            @RequestParam Integer quantity,
+                                                            HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        Order order = null;
+        if (userId != null) {
+            order = orderService.createOrder(userId, showId, quantity);
+        }
+        // 使用 Map 包装，确保即使 order 为 null 也返回有效的 JSON 对象
+        Map<String, Object> result = new HashMap<>();
+        result.put("order", order);
+        return ResponseEntity.ok(result);
     }
 
     /**
      * 2. 查询订单详情
-     * URL 参数：orderId, userId
+     * URL 参数：orderId
+     * userId从JWT Token中获取
+     * @return 如果订单存在，返回 {"order": {订单详情JSON对象}}；如果不存在，返回 {"order": null}
      */
-    //GET 请求
-    //子路径
     @GetMapping("/details")
-    public Order getOrderDetails(
-            //获取订单ID
-            @RequestParam Long orderId,
-            //获取用户ID (用于权限校验)
-            @RequestParam Long userId) {
-
-        // Service 层需要 userId 进行权限校验（只能查自己的订单）
-        //1. 查询订单
-        //2. 验证 userId 是否匹配该订单。
-        return orderService.getOrderDetails(orderId, userId);
+    public ResponseEntity<Map<String, Object>> getOrderDetails(@RequestParam Long orderId, HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        Order order = null;
+        if (userId != null) {
+            order = orderService.getOrderDetails(orderId, userId);
+        }
+        // 使用 Map 包装，确保即使 order 为 null 也返回有效的 JSON 对象
+        Map<String, Object> result = new HashMap<>();
+        result.put("order", order);
+        return ResponseEntity.ok(result);
     }
 
     /**
      * 3. 取消订单
-     * URL 参数：orderId, userId
+     * URL 参数：orderId
+     * userId从JWT Token中获取
      */
-    //子路径
     @PutMapping("/cancel")
-    public String cancelOrder(
-            @RequestParam Long orderId,
-            @RequestParam Long userId) {
+    public ApiResponse cancelOrder(@RequestParam Long orderId, HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) {
+            return ApiResponse.failure("取消失败：请先登录。");
+        }
 
         boolean success = orderService.cancelOrder(orderId, userId);
-
-        //PUT 请求:通常用于 修改/更新 资源状态
-        //根据 Service 层返回的布尔值判断操作结果
         if (success) {
-            return "订单取消成功。库存已返还。";
+            return ApiResponse.success("订单取消成功。库存已返还。");
         } else {
-            return "取消失败！订单不存在、不属于您、或状态不可取消。";
+            return ApiResponse.failure("取消失败！订单不存在、不属于您、或状态不可取消。");
         }
     }
 
     /**
      * 4. 支付订单
-     * URL 参数：orderId, userId
+     * URL 参数：orderId
+     * userId从JWT Token中获取
      */
     @PutMapping("/pay")
-    public String payOrder(
-            @RequestParam Long orderId,
-            @RequestParam Long userId) {
+    public ApiResponse payOrder(@RequestParam Long orderId, HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) {
+            return ApiResponse.failure("支付失败：请先登录。");
+        }
 
         boolean success = orderService.payOrder(orderId, userId);
-
         if (success) {
-            return "订单支付成功！";
+            return ApiResponse.success("订单支付成功！");
         } else {
-            return "支付失败！订单不存在、不属于您、或状态不可支付。";
+            return ApiResponse.failure("支付失败！订单不存在、不属于您、或状态不可支付。");
         }
     }
 
     /**
      * 5. 分页查询指定用户的订单列表
-     * URL 参数：userId, pageNum, pageSize
+     * URL 参数：pageNum, pageSize
+     * userId从JWT Token中获取
      */
     @GetMapping("/list")
-    //返回一个封装了分页信息的对象
-    //用于封装订单列表数据、总记录数、总页数、当前页码等分页信息，方便前端展示
-    public PageResult<Order> getUserOrderList(
-            @RequestParam Long userId,
-            //默认值配置
-            //如果客户端请求中没有提供 pageNum，它将默认使用 1
-            //pageSize 同理
-            @RequestParam(defaultValue = "1") int pageNum,
-            @RequestParam(defaultValue = "10") int pageSize) {
-
+    public PageResult<Order> getUserOrderList(@RequestParam(defaultValue = "1") int pageNum,
+                                               @RequestParam(defaultValue = "10") int pageSize,
+                                               HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) {
+            // 返回空的分页结果，而不是null
+            return PageResult.build(0, pageNum, pageSize, List.of());
+        }
         return orderService.getUserOrderList(userId, pageNum, pageSize);
+    }
+
+    /**
+     * 用户端 - 条件查询订单列表（分页）
+     * URL 参数：status, pageNum, pageSize
+     * userId从JWT Token中获取
+     */
+    @GetMapping("/query")
+    public PageResult<Order> getUserOrderListWithConditions(@RequestParam(required = false) Integer status,
+                                                             @RequestParam(defaultValue = "1") int pageNum,
+                                                             @RequestParam(defaultValue = "10") int pageSize,
+                                                             HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) {
+            // 返回空的分页结果，而不是null
+            return PageResult.build(0, pageNum, pageSize, List.of());
+        }
+        return orderService.getUserOrderListWithConditions(userId, status, pageNum, pageSize);
     }
 
     // --------------------------------------------------------------------------
@@ -124,15 +148,24 @@ public class OrderController {
 
     /**
      * 6. 管理端 - 查询所有订单列表
-     * 不依赖 userId，需要管理员账户才能访问 (假设通过其他机制或不验证)
      */
-    //属于管理员路径 /admin/all，与用户端接口隔离
     @GetMapping("/admin/all")
     public PageResult<Order> getAllOrderList(
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
-        //不传入 userId，Service 层来查询所有用户的订单数据
         return orderService.getAllOrderList(pageNum, pageSize);
+    }
+
+    /**
+     * 管理端 - 条件查询订单列表（分页）
+     */
+    @GetMapping("/admin/query")
+    public PageResult<Order> getAllOrderListWithConditions(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        return orderService.getAllOrderListWithConditions(userId, status, pageNum, pageSize);
     }
 
     /**

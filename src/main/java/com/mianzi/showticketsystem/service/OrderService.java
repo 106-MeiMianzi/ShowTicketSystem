@@ -20,7 +20,7 @@ public interface OrderService {
     /**
      * 根据订单ID和用户ID查询订单详情
      * @param orderId 订单ID
-     * @param userId 用户ID
+     * @param userId 用户ID（可为null，用于管理端查询）
      * @return 订单对象，如果不存在或不属于该用户则返回 null
      */
     Order getOrderDetails(Long orderId, Long userId);
@@ -49,7 +49,17 @@ public interface OrderService {
      * @param pageSize 每页记录数
      * @return 包含订单列表的分页结果对象
      */
-    PageResult<Order> getUserOrderList(Long userId, int pageNum, int pageSize); // <-- 新增这行
+    PageResult<Order> getUserOrderList(Long userId, int pageNum, int pageSize);
+
+    /**
+     * 用户端 - 条件查询订单列表（分页）
+     * @param userId 用户ID
+     * @param status 订单状态（可选）
+     * @param pageNum 当前页码
+     * @param pageSize 每页记录数
+     * @return 包含订单列表的分页结果对象
+     */
+    PageResult<Order> getUserOrderListWithConditions(Long userId, Integer status, int pageNum, int pageSize);
 
     /**
      * 管理端 - 分页查询所有订单列表
@@ -57,7 +67,24 @@ public interface OrderService {
      * @param pageSize 每页记录数
      * @return 包含所有订单列表的分页结果对象
      */
-    PageResult<Order> getAllOrderList(int pageNum, int pageSize); // <-- 新增这行
+    PageResult<Order> getAllOrderList(int pageNum, int pageSize);
+
+    /**
+     * 管理端 - 条件查询订单列表（分页）
+     * @param userId 用户ID（可选）
+     * @param status 订单状态（可选）
+     * @param pageNum 当前页码
+     * @param pageSize 每页记录数
+     * @return 包含订单列表的分页结果对象
+     */
+    PageResult<Order> getAllOrderListWithConditions(Long userId, Integer status, int pageNum, int pageSize);
+
+    /**
+     * 根据商户订单号查询订单
+     * @param outTradeNo 商户订单号
+     * @return 订单对象
+     */
+    Order getOrderByOutTradeNo(String outTradeNo);
 
     /**
      * 管理端 - 手动更新订单状态

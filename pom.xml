@@ -72,6 +72,38 @@
             <artifactId>mybatisplus-spring-boot-starter</artifactId>
             <version>1.0.5</version>
         </dependency>
+        <!-- Spring Mail 用于发送邮件通知 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        <!-- JWT 用于Token认证 -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.12.3</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.3</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.3</version>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- 支付宝SDK（已注释，使用简化版本的支付服务） -->
+        <!-- 如果需要真实的支付功能，请取消注释并按照ALIPAY_SDK_SETUP.md中的说明配置 -->
+        <!--
+        <dependency>
+            <groupId>com.alipay.sdk</groupId>
+            <artifactId>alipay-sdk-java</artifactId>
+            <version>4.38.120.ALL</version>
+        </dependency>
+        -->
     </dependencies>
 
     <build>

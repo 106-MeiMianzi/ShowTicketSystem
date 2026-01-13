@@ -5,19 +5,19 @@
 
     <insert id="insert" keyProperty="id" useGeneratedKeys="true">
         INSERT INTO `show` (
-            name, venue, start_time, end_time, total_tickets,
-            available_tickets, price, status, create_time, update_time
+            name, venue, region, category, start_time, end_time, total_tickets,
+            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
         ) VALUES (
-                     #{name}, #{venue}, #{startTime}, #{endTime}, #{totalTickets},
-                     #{availableTickets}, #{price}, #{status}, #{createTime}, #{updateTime}
+                     #{name}, #{venue}, #{region}, #{category}, #{startTime}, #{endTime}, #{totalTickets},
+                     #{availableTickets}, #{price}, #{sessionInfo}, #{ticketTier}, #{isOnSale}, #{status}, #{createTime}, #{updateTime}
                  )
     </insert>
     <select id="findAll" resultType="com.mianzi.showticketsystem.model.entity.Show">
         SELECT
-            id, name, venue, start_time, end_time, total_tickets,
-            available_tickets, price, status, create_time, update_time
+            id, name, venue, region, category, start_time, end_time, total_tickets,
+            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
         FROM `show`
-        WHERE status = 1 -- 只显示状态为正常的演出
+        WHERE status = 1
         ORDER BY start_time ASC
     </select>
     <update id="updateStock">
@@ -33,8 +33,8 @@
 
     <select id="getById" resultType="com.mianzi.showticketsystem.model.entity.Show">
         SELECT
-            id, name, venue, start_time, end_time, total_tickets,
-            available_tickets, price, status, create_time, update_time
+            id, name, venue, region, category, start_time, end_time, total_tickets,
+            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
         FROM `show`
         WHERE id = #{id} AND status = 1
     </select>
@@ -54,10 +54,15 @@
         <set>
             <if test="name != null">name = #{name},</if>
             <if test="venue != null">venue = #{venue},</if>
+            <if test="region != null">region = #{region},</if>
+            <if test="category != null">category = #{category},</if>
             <if test="startTime != null">start_time = #{startTime},</if>
             <if test="endTime != null">end_time = #{endTime},</if>
             <if test="totalTickets != null">total_tickets = #{totalTickets},</if>
             <if test="price != null">price = #{price},</if>
+            <if test="sessionInfo != null">session_info = #{sessionInfo},</if>
+            <if test="ticketTier != null">ticket_tier = #{ticketTier},</if>
+            <if test="isOnSale != null">is_on_sale = #{isOnSale},</if>
             <if test="status != null">status = #{status},</if>
             update_time = NOW()
         </set>
@@ -68,5 +73,111 @@
         DELETE FROM `show`
         WHERE id = #{id}
     </delete>
+
+    <select id="findByRegionAndCategory" resultType="com.mianzi.showticketsystem.model.entity.Show">
+        SELECT
+            id, name, venue, region, category, start_time, end_time, total_tickets,
+            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+        FROM `show`
+        WHERE status = 1
+        <if test="region != null and region != ''">
+            AND region = #{region}
+        </if>
+        <if test="category != null and category != ''">
+            AND category = #{category}
+        </if>
+        ORDER BY start_time ASC
+        <if test="limit != null and limit > 0">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <select id="searchShows" resultType="com.mianzi.showticketsystem.model.entity.Show">
+        SELECT
+            id, name, venue, region, category, start_time, end_time, total_tickets,
+            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+        FROM `show`
+        WHERE status = 1
+        AND (name LIKE CONCAT('%', #{keyword}, '%') OR venue LIKE CONCAT('%', #{keyword}, '%'))
+        ORDER BY start_time ASC
+    </select>
+
+    <select id="findShowsByConditions" resultType="com.mianzi.showticketsystem.model.entity.Show">
+        SELECT
+            id, name, venue, region, category, start_time, end_time, total_tickets,
+            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+        FROM `show`
+        WHERE status = 1
+        <if test="region != null and region != ''">
+            AND region = #{region}
+        </if>
+        <if test="category != null and category != ''">
+            AND category = #{category}
+        </if>
+        ORDER BY start_time ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countShowsByConditions" resultType="long">
+        SELECT COUNT(id)
+        FROM `show`
+        WHERE status = 1
+        <if test="region != null and region != ''">
+            AND region = #{region}
+        </if>
+        <if test="category != null and category != ''">
+            AND category = #{category}
+        </if>
+    </select>
+
+    <select id="findShowsForAdmin" resultType="com.mianzi.showticketsystem.model.entity.Show">
+        SELECT
+            id, name, venue, region, category, start_time, end_time, total_tickets,
+            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+        FROM `show`
+        <where>
+            <if test="name != null and name != ''">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+            <if test="region != null and region != ''">
+                AND region = #{region}
+            </if>
+            <if test="category != null and category != ''">
+                AND category = #{category}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countShowsForAdmin" resultType="long">
+        SELECT COUNT(id)
+        FROM `show`
+        <where>
+            <if test="name != null and name != ''">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+            <if test="region != null and region != ''">
+                AND region = #{region}
+            </if>
+            <if test="category != null and category != ''">
+                AND category = #{category}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <select id="getByIdForAdmin" resultType="com.mianzi.showticketsystem.model.entity.Show">
+        SELECT
+            id, name, venue, region, category, start_time, end_time, total_tickets,
+            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+        FROM `show`
+        WHERE id = #{id}
+    </select>
 
 </mapper>

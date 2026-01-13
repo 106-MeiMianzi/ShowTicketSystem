@@ -1,13 +1,12 @@
 package com.mianzi.showticketsystem.service;
 
 import com.mianzi.showticketsystem.mapper.ShowMapper;
+import com.mianzi.showticketsystem.model.entity.PageResult;
 import com.mianzi.showticketsystem.model.entity.Show;
-import com.mianzi.showticketsystem.service.ShowService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List; // 确保导入了 List
+import java.util.List;
 
 /**
  * ShowService 接口的实现类
@@ -87,5 +86,100 @@ public class ShowServiceImpl implements ShowService {
         //如果有则通常不允许删除或执行逻辑删除。
         int deletedRows = showMapper.delete(id);
         return deletedRows == 1;
+    }
+
+    /**
+     * 实现在首页获取地区和分类演出列表的逻辑
+     */
+    @Override
+    public List<Show> getHomeShows(String region, String category, Integer limit) {
+        // 如果没有指定地区，默认使用北京
+        if (region == null || region.isEmpty()) {
+            region = "北京";
+        }
+        
+        // 如果没有指定数量限制，默认返回20条
+        if (limit == null || limit <= 0) {
+            limit = 20;
+        }
+        
+        return showMapper.findByRegionAndCategory(region, category, limit);
+    }
+
+    /**
+     * 实现搜索演出的逻辑
+     */
+    @Override
+    public List<Show> searchShows(String keyword) {
+        if (keyword == null || keyword.isEmpty()) {
+            return List.of();
+        }
+        return showMapper.searchShows(keyword);
+    }
+
+    /**
+     * 实现条件查询演出的逻辑（分页）
+     */
+    @Override
+    public PageResult<Show> findShowsByConditions(String region, String category, int pageNum, int pageSize) {
+        // 参数校验
+        if (pageNum <= 0) pageNum = 1;
+        if (pageSize <= 0) pageSize = 10;
+        // 页大小上限限制，防止恶意请求导致数据库压力过大
+        if (pageSize > 100) pageSize = 100;
+
+        // 计算偏移量
+        int offset = (pageNum - 1) * pageSize;
+
+        // 查询总记录数
+        long total = showMapper.countShowsByConditions(region, category);
+
+        // 如果总记录数为 0，直接返回空结果
+        if (total == 0) {
+            return PageResult.build(0, pageNum, pageSize, List.of());
+        }
+
+        // 分页查询列表数据
+        List<Show> records = showMapper.findShowsByConditions(region, category, offset, pageSize);
+
+        // 封装为 PageResult 并返回
+        return PageResult.build(total, pageNum, pageSize, records);
+    }
+
+    /**
+     * 实现管理端分页查询演出列表的逻辑
+     */
+    @Override
+    public PageResult<Show> getShowListForAdmin(String name, String region, String category, Integer status, int pageNum, int pageSize) {
+        // 参数校验
+        if (pageNum <= 0) pageNum = 1;
+        if (pageSize <= 0) pageSize = 10;
+        // 页大小上限限制，防止恶意请求导致数据库压力过大
+        if (pageSize > 100) pageSize = 100;
+
+        // 计算偏移量
+        int offset = (pageNum - 1) * pageSize;
+
+        // 查询总记录数
+        long total = showMapper.countShowsForAdmin(name, region, category, status);
+
+        // 如果总记录数为 0，直接返回空结果
+        if (total == 0) {
+            return PageResult.build(0, pageNum, pageSize, List.of());
+        }
+
+        // 分页查询列表数据
+        List<Show> records = showMapper.findShowsForAdmin(name, region, category, status, offset, pageSize);
+
+        // 封装为 PageResult 并返回
+        return PageResult.build(total, pageNum, pageSize, records);
+    }
+
+    /**
+     * 实现管理端查询演出详情的逻辑
+     */
+    @Override
+    public Show getShowByIdForAdmin(Long id) {
+        return showMapper.getByIdForAdmin(id);
     }
 }

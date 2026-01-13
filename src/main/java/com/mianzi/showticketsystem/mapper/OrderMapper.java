@@ -28,10 +28,14 @@ public interface OrderMapper {
      * @param userId 用户ID
      * @return 订单实体对象
      */
-    //是为了给方法中的多个参数（id 和 userId）取一个明确的“名字”
-    //以便 MyBatis 能够将这些 Java 参数的值
-    //准确地匹配并替换到 XML 文件中的 SQL 语句占位符（#{...}）中
-    Order getByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId); // <-- 新增这行
+    Order getByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
+
+    /**
+     * 根据订单ID查询订单详情（用于管理端）
+     * @param id 订单ID
+     * @return 订单实体对象
+     */
+    Order getById(@Param("id") Long id);
     /**
      * 更新订单状态，仅允许在特定状态下进行
      * @param id 订单ID
@@ -104,4 +108,70 @@ public interface OrderMapper {
     int adminUpdateStatus(
             @Param("orderId") Long orderId,
             @Param("newStatus") Integer newStatus);
+
+    /**
+     * 根据商户订单号查询订单
+     * @param outTradeNo 商户订单号
+     * @return 订单对象
+     */
+    Order getByOutTradeNo(@Param("outTradeNo") String outTradeNo);
+
+    /**
+     * 更新订单的支付宝交易号
+     * @param orderId 订单ID
+     * @param alipayTradeNo 支付宝交易号
+     * @return 影响的行数
+     */
+    int updateAlipayTradeNo(@Param("orderId") Long orderId, @Param("alipayTradeNo") String alipayTradeNo);
+
+    /**
+     * 用户端 - 条件查询订单列表（分页）
+     * @param userId 用户ID
+     * @param status 订单状态（可选）
+     * @param offset 偏移量
+     * @param limit 每页数量
+     * @return 订单列表
+     */
+    List<Order> findOrdersByUserIdWithConditions(@Param("userId") Long userId,
+                                                 @Param("status") Integer status,
+                                                 @Param("offset") Integer offset,
+                                                 @Param("limit") Integer limit);
+
+    /**
+     * 用户端 - 统计条件查询的订单总数
+     * @param userId 用户ID
+     * @param status 订单状态（可选）
+     * @return 总数
+     */
+    long countOrdersByUserIdWithConditions(@Param("userId") Long userId,
+                                          @Param("status") Integer status);
+
+    /**
+     * 管理端 - 条件查询订单列表（分页）
+     * @param userId 用户ID（可选）
+     * @param status 订单状态（可选）
+     * @param offset 偏移量
+     * @param limit 每页数量
+     * @return 订单列表
+     */
+    List<Order> findOrdersForAdmin(@Param("userId") Long userId,
+                                  @Param("status") Integer status,
+                                  @Param("offset") Integer offset,
+                                  @Param("limit") Integer limit);
+
+    /**
+     * 管理端 - 统计条件查询的订单总数
+     * @param userId 用户ID（可选）
+     * @param status 订单状态（可选）
+     * @return 总数
+     */
+    long countOrdersForAdmin(@Param("userId") Long userId,
+                            @Param("status") Integer status);
+
+    /**
+     * 查询待支付的订单（用于掉单补偿和超时关单）
+     * @param beforeTime 时间点（查询此时间之前的订单）
+     * @return 订单列表
+     */
+    List<Order> findPendingOrdersBefore(@Param("beforeTime") java.time.LocalDateTime beforeTime);
 }

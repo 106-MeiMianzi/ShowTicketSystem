@@ -34,6 +34,21 @@ public class User {
     private String password;
 
     /**
+     * 邮箱（用于登录和接收通知）
+     */
+    private String email;
+
+    /**
+     * 手机号
+     */
+    private String phone;
+
+    /**
+     * 真实姓名
+     */
+    private String realName;
+
+    /**
      * 角色（1:普通用户, 2:管理员）
      * 用于区分用户权限
      */
