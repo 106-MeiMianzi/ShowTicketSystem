@@ -1,100 +1,285 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+    XML 声明：告诉解析器这是一个 XML 文件
+    version="1.0": 使用 XML 1.0 规范
+    encoding="UTF-8": 文件编码为 UTF-8，确保中文和特殊字符不会乱码
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <!-- 
+        <project>: Maven 项目的根元素，所有配置都在这个标签内
+        
+        xmlns="http://maven.apache.org/POM/4.0.0": 
+            - XML 默认命名空间，声明这是 Maven POM 4.0.0 规范
+            - 告诉解析器 <groupId>、<artifactId>、<version> 等标签来自 Maven 规范
+        
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance":
+            - 引入 XML Schema 实例命名空间，前缀为 xsi
+            - 用于后续引用 Schema 定义文件
+        
+        xsi:schemaLocation="...":
+            - 指定 Schema 文件的位置
+            - 作用：IDE 和工具可用它进行标签提示、自动补全和校验
+            - 格式：命名空间URL + Schema文件URL
+    -->
+    
+    <!-- 
+        <modelVersion>: Maven 项目模型版本
+        固定值 4.0.0，表示使用 Maven POM 4.0.0 规范
+        这个值必须与 xmlns 中的版本对应
+    -->
     <modelVersion>4.0.0</modelVersion>
+    
+    <!-- 
+        <parent>: 继承父 POM 配置
+        通过继承 Spring Boot 的父 POM，可以自动获得：
+        - Spring Boot 的版本管理
+        - 默认的依赖版本
+        - 默认的插件配置
+        - Java 编译版本等配置
+    -->
     <parent>
+        <!-- 父项目的组织ID（通常是公司域名倒写） -->
         <groupId>org.springframework.boot</groupId>
+        <!-- 父项目的项目ID -->
         <artifactId>spring-boot-starter-parent</artifactId>
+        <!-- 父项目的版本号：Spring Boot 3.5.7 -->
         <version>3.5.7</version>
+        <!-- 
+            <relativePath/>: 空值表示不从本地查找父 POM，直接从 Maven 仓库下载
+            如果本地有父项目，可以设置为相对路径，如：<relativePath>../parent/pom.xml</relativePath>
+        -->
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
+    
+    <!-- ==================== 项目基本信息 ==================== -->
+    
+    <!-- 
+        <groupId>: 项目的组织ID（组织/公司标识）
+        格式：反向域名，如 com.mianzi
+        作用：用于在 Maven 仓库中唯一标识这个项目所属的组织
+    -->
     <groupId>com.mianzi</groupId>
+    
+    <!-- 
+        <artifactId>: 项目的唯一标识符（项目名称）
+        通常使用小写字母和连字符，如 show-ticket-system
+        作用：在同一个 groupId 下唯一标识这个项目
+    -->
     <artifactId>ShowTicketSystem</artifactId>
+    
+    <!-- 
+        <version>: 项目版本号
+        0.0.1-SNAPSHOT: 
+            - 0.0.1 是版本号
+            - SNAPSHOT 表示这是开发版本（快照版本），还在开发中
+            - 正式发布时通常改为 RELEASE，如 1.0.0
+    -->
     <version>0.0.1-SNAPSHOT</version>
+    
+    <!-- 
+        <name>: 项目的显示名称（可选）
+        用于在文档中显示，不影响构建
+    -->
     <name>ShowTicketSystem</name>
+    
+    <!-- 
+        <description>: 项目描述（可选）
+        描述项目的作用和功能
+    -->
     <description>ShowTicketSystem</description>
+    
+    <!-- 
+        <url>: 项目主页URL（可选）
+        空值表示没有项目主页
+    -->
     <url/>
+    
+    <!-- 
+        <licenses>: 许可证信息（可选）
+        空值表示未指定许可证
+    -->
     <licenses>
         <license/>
     </licenses>
+    
+    <!-- 
+        <developers>: 开发者信息（可选）
+        空值表示未指定开发者信息
+    -->
     <developers>
         <developer/>
     </developers>
+    
+    <!-- 
+        <scm>: 源代码管理信息（可选，如 Git、SVN）
+        空值表示未配置源代码管理信息
+    -->
     <scm>
         <connection/>
         <developerConnection/>
         <tag/>
         <url/>
     </scm>
+    
+    <!-- ==================== 项目属性配置 ==================== -->
+    
+    <!-- 
+        <properties>: 定义项目属性（变量）
+        可以在其他地方通过 ${属性名} 引用
+    -->
     <properties>
+        <!-- 
+            <java.version>: 指定 Java 编译版本
+            17 表示使用 Java 17
+            注意：这个属性会被 Spring Boot 父 POM 使用，自动配置编译插件
+        -->
         <java.version>17</java.version>
     </properties>
+    
+    <!-- ==================== 项目依赖配置 ==================== -->
+    
+    <!-- 
+        <dependencies>: 项目依赖列表
+        Maven 会自动下载这些依赖及其传递依赖到本地仓库
+    -->
     <dependencies>
+        
+        <!-- 
+            依赖1: Spring Boot Web Starter
+            作用：提供 Spring MVC、内嵌 Tomcat、JSON 支持等 Web 开发所需的核心功能
+            版本：由父 POM 管理，无需指定（继承自 spring-boot-starter-parent）
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        
+        <!-- 
+            依赖2: MyBatis Spring Boot Starter
+            作用：集成 MyBatis 到 Spring Boot，提供数据库 ORM 功能
+            版本：3.0.5（需要手动指定，因为父 POM 可能没有管理这个版本）
+        -->
         <dependency>
             <groupId>org.mybatis.spring.boot</groupId>
             <artifactId>mybatis-spring-boot-starter</artifactId>
             <version>3.0.5</version>
         </dependency>
 
+        <!-- 
+            依赖3: Spring Boot DevTools（开发工具）
+            作用：
+                - 代码修改后自动重启应用（热部署）
+                - 提供开发时的便利功能
+            <scope>runtime</scope>: 只在运行时需要，编译时不需要
+            <optional>true</optional>: 可选依赖，不会传递给依赖此项目的其他项目
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
+        
+        <!-- 
+            依赖4: MySQL 数据库驱动
+            作用：连接和操作 MySQL 数据库
+            <scope>runtime</scope>: 只在运行时需要，编译时不需要（因为使用 JDBC 接口）
+        -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
+        
+        <!-- 
+            依赖5: Lombok（代码生成工具）
+            作用：通过注解自动生成 getter、setter、toString、equals 等方法，减少样板代码
+            <optional>true</optional>: 可选依赖，只在编译时需要，不会打包到最终 jar 中
+            注意：需要在 IDE 中安装 Lombok 插件才能正常使用
+        -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+        
+        <!-- 
+            依赖6: Spring Boot Test Starter（测试框架）
+            作用：提供 JUnit、Mockito、Spring Test 等测试工具
+            <scope>test</scope>: 只在测试时需要，不会打包到生产环境
+        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        
+        <!-- 
+            依赖7: MyBatis Spring Boot Test Starter
+            作用：提供 MyBatis 的测试支持
+            <scope>test</scope>: 只在测试时需要
+        -->
         <dependency>
             <groupId>org.mybatis.spring.boot</groupId>
             <artifactId>mybatis-spring-boot-starter-test</artifactId>
             <version>3.0.5</version>
             <scope>test</scope>
         </dependency>
+        
+        <!-- 
+            依赖8: MyBatis-Plus Spring Boot Starter
+            作用：MyBatis 的增强工具，提供更强大的 CRUD 功能、分页、代码生成等
+            版本：1.0.5（需要手动指定）
+        -->
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatisplus-spring-boot-starter</artifactId>
             <version>1.0.5</version>
         </dependency>
+        
+        <!-- 
+            依赖9: Spring Mail（邮件服务）
+            作用：发送邮件通知，如订单确认邮件、密码重置邮件等
+            版本：由父 POM 管理
+        -->
         <!-- Spring Mail 用于发送邮件通知 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
+        
+        <!-- 
+            依赖10-12: JWT（JSON Web Token）相关依赖
+            作用：用于用户身份认证，生成和验证 Token
+            版本：0.12.3（需要手动指定）
+        -->
         <!-- JWT 用于Token认证 -->
+        <!-- jjwt-api: JWT API 接口 -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
             <version>0.12.3</version>
         </dependency>
+        <!-- jjwt-impl: JWT 实现类 -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
             <version>0.12.3</version>
             <scope>runtime</scope>
         </dependency>
+        <!-- jjwt-jackson: JWT 的 Jackson 序列化支持 -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
             <version>0.12.3</version>
             <scope>runtime</scope>
         </dependency>
+        
+        <!-- 
+            依赖13: 支付宝 SDK（已注释，未使用）
+            如果需要真实的支付功能，请取消注释并按照 ALIPAY_SDK_SETUP.md 中的说明配置
+        -->
         <!-- 支付宝SDK（已注释，使用简化版本的支付服务） -->
         <!-- 如果需要真实的支付功能，请取消注释并按照ALIPAY_SDK_SETUP.md中的说明配置 -->
         <!--
@@ -106,12 +291,31 @@
         -->
     </dependencies>
 
+    <!-- ==================== 构建配置 ==================== -->
+    
+    <!-- 
+        <build>: 构建配置
+        配置编译、打包、测试等构建过程
+    -->
     <build>
+        <!-- 
+            <plugins>: Maven 插件列表
+            插件用于扩展 Maven 的功能，如编译、打包、运行等
+        -->
         <plugins>
+            
+            <!-- 
+                插件1: Maven 编译器插件
+                作用：配置 Java 源代码的编译选项
+            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
+                    <!-- 
+                        <annotationProcessorPaths>: 注解处理器路径
+                        配置 Lombok 的注解处理器，让编译器能够处理 Lombok 注解
+                    -->
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
@@ -120,10 +324,22 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            
+            <!-- 
+                插件2: Spring Boot Maven 插件
+                作用：
+                    - 将项目打包成可执行的 jar 文件
+                    - 运行 Spring Boot 应用（mvn spring-boot:run）
+                    - 生成包含所有依赖的"fat jar"
+            -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <!-- 
+                        <excludes>: 排除某些依赖
+                        排除 Lombok，因为 Lombok 只在编译时需要，不需要打包到最终 jar 中
+                    -->
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
@@ -132,6 +348,7 @@
                     </excludes>
                 </configuration>
             </plugin>
+            
         </plugins>
     </build>
 
