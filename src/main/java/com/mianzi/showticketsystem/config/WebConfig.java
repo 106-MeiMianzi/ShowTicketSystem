@@ -1,10 +1,13 @@
 package com.mianzi.showticketsystem.config;
 
 import com.mianzi.showticketsystem.filter.JwtAuthenticationFilter;
+import com.mianzi.showticketsystem.interceptor.RateLimitInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * Web配置类
@@ -25,7 +28,7 @@ import org.springframework.context.annotation.Configuration;
  * - 类中带有@Bean注解的方法会被执行，创建Bean并注册到Spring容器
  * - 配置类通常用于配置第三方组件或自定义组件
  */
-public class WebConfig {
+public class WebConfig implements WebMvcConfigurer {
 
     /**
      * 注入JWT认证过滤器
@@ -37,6 +40,12 @@ public class WebConfig {
      */
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    /**
+     * 注入限流拦截器
+     */
+    @Autowired
+    private RateLimitInterceptor rateLimitInterceptor;
 
     /**
      * 注册JWT过滤器
@@ -102,5 +111,16 @@ public class WebConfig {
          * 过滤器会在请求到达Controller之前执行
          */
         return registrationBean;
+    }
+
+    /**
+     * 注册拦截器
+     * 
+     * @param registry 拦截器注册表
+     */
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(rateLimitInterceptor)
+                .addPathPatterns("/api/**"); // 拦截所有API请求
     }
 }

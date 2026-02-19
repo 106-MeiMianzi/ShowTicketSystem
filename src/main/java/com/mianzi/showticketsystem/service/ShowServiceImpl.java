@@ -1,12 +1,18 @@
 package com.mianzi.showticketsystem.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mianzi.showticketsystem.mapper.ShowMapper;
 import com.mianzi.showticketsystem.model.entity.PageResult;
 import com.mianzi.showticketsystem.model.entity.Show;
+import com.mianzi.showticketsystem.service.GeoLocationService;
+import com.mianzi.showticketsystem.util.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * ShowService 接口的实现类
@@ -45,13 +51,38 @@ public class ShowServiceImpl implements ShowService {
     private ShowMapper showMapper;
 
     /**
-     * 实现发布新的演出逻辑
+     * 注入Redis工具类
+     * 
+     * 用于缓存演出信息、热门排行榜等功能
+     */
+    @Autowired
+    private RedisUtil redisUtil;
+
+    /**
+     * 注入Jackson ObjectMapper
+     * 
+     * 用于JSON序列化和反序列化
+     */
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    /**
+     * 注入地理位置服务
+     * 
+     * 用于发布演出时同步地理位置到Redis
+     */
+    @Autowired
+    private GeoLocationService geoLocationService;
+
+    /**
+     * 实现发布新的演出逻辑（同步地理位置到Redis）
      * 
      * 业务逻辑：
      * 1. 初始化可用票数（等于总票数）
      * 2. 设置状态为正常可售
      * 3. 设置创建时间和更新时间
      * 4. 插入数据库
+     * 5. 同步地理位置到Redis（如果提供了地区）
      * 
      * @param show 演出实体对象
      * @return 发布成功返回true，失败返回false
@@ -94,56 +125,113 @@ public class ShowServiceImpl implements ShowService {
         int result = showMapper.insert(show);
 
         /**
+         * 步骤5：如果发布成功，同步地理位置到Redis
+         */
+        if (result == 1 && show.getId() != null && show.getRegion() != null) {
+            try {
+                // 同步地理位置（异步执行，不影响主流程）
+                geoLocationService.syncShowLocations();
+            } catch (Exception e) {
+                // 地理位置同步失败不影响演出发布
+            }
+        }
+
+        /**
          * 返回结果
          */
         return result == 1;
     }
 
     /**
-     * 实现查询所有已发布的演出列表的逻辑
+     * 实现查询所有已发布的演出列表的逻辑（带Redis缓存）
      * 
      * 功能说明：
      * - 查询所有正常状态的演出
      * - 用户端使用
+     * - 使用Redis缓存，减少数据库查询
      * 
      * @return 演出列表
      */
     @Override
     public List<Show> findAllShows() {
-        /**
-         * 直接调用Mapper层的方法
-         * 
-         * Mapper层会过滤掉已取消的演出（status = 0）
-         */
-        return showMapper.findAll();
+        String cacheKey = "shows:list:all";
+        
+        // 先从Redis获取缓存
+        Object cached = redisUtil.get(cacheKey);
+        if (cached != null) {
+            if (cached instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Show> cachedShows = (List<Show>) cached;
+                return cachedShows;
+            }
+        }
+        
+        // Redis没有缓存，查询数据库
+        List<Show> shows = showMapper.findAll();
+        
+        // 存入Redis缓存，30分钟过期
+        if (shows != null && !shows.isEmpty()) {
+            redisUtil.set(cacheKey, shows, 1800); // 30分钟 = 1800秒
+        }
+        
+        return shows;
     }
 
     /**
-     * 实现根据ID查询演出详情的逻辑
+     * 实现根据ID查询演出详情的逻辑（带Redis缓存和热门度统计）
      * 
      * 功能说明：
      * - 用户端查询演出详情
      * - 只返回正常状态的演出
+     * - 使用Redis缓存，减少数据库查询
+     * - 增加演出热门度（用于排行榜）
      * 
      * @param id 演出ID
      * @return 演出对象，如果不存在或已取消则返回null
      */
     @Override
     public Show getShowById(Long id) {
-        /**
-         * 调用Mapper层查询演出详情
-         * 
-         * Mapper层会过滤掉已取消的演出（status = 0）
-         */
-        return showMapper.getById(id);
+        String cacheKey = "show:detail:" + id;
+        
+        // 先从Redis获取缓存
+        Object cached = redisUtil.get(cacheKey);
+        if (cached != null && cached instanceof Show) {
+            Show show = (Show) cached;
+            // 增加热门度
+            incrementShowPopularity(id);
+            return show;
+        }
+        
+        // Redis没有缓存，查询数据库
+        Show show = showMapper.getById(id);
+        
+        if (show != null) {
+            // 存入Redis缓存，1小时过期
+            redisUtil.set(cacheKey, show, 3600); // 1小时 = 3600秒
+            // 增加热门度
+            incrementShowPopularity(id);
+        }
+        
+        return show;
     }
 
     /**
-     * 更新演出信息
+     * 增加演出热门度（用于排行榜）
+     * 
+     * @param showId 演出ID
+     */
+    private void incrementShowPopularity(Long showId) {
+        String rankKey = "rank:shows:popularity";
+        redisUtil.zIncrementScore(rankKey, String.valueOf(showId), 1);
+    }
+
+    /**
+     * 更新演出信息（清除相关缓存）
      * 
      * 功能说明：
      * - 管理员修改演出信息
      * - 可以更新部分字段（只更新非空字段）
+     * - 更新后清除相关缓存
      * 
      * @param show 包含新信息的演出对象，必须包含id
      * @return 成功返回true，失败返回false
@@ -167,14 +255,24 @@ public class ShowServiceImpl implements ShowService {
          * updatedRows = 0 表示更新失败（演出不存在）
          */
         int updatedRows = showMapper.update(show);
+        
+        if (updatedRows == 1) {
+            // 清除相关缓存
+            if (show.getId() != null) {
+                redisUtil.delete("show:detail:" + show.getId());
+            }
+            redisUtil.delete("shows:list:all");
+        }
+        
         return updatedRows == 1;
     }
 
     /**
-     * 删除演出信息
+     * 删除演出信息（清除相关缓存）
      * 
      * 功能说明：
      * - 管理员删除演出（物理删除）
+     * - 删除后清除相关缓存
      * 
      * @param id 演出ID
      * @return 成功返回true，失败返回false
@@ -192,6 +290,15 @@ public class ShowServiceImpl implements ShowService {
          * deletedRows = 0 表示删除失败（演出不存在）
          */
         int deletedRows = showMapper.delete(id);
+        
+        if (deletedRows == 1) {
+            // 清除相关缓存
+            redisUtil.delete("show:detail:" + id);
+            redisUtil.delete("shows:list:all");
+            // 从排行榜中移除
+            redisUtil.zAdd("rank:shows:popularity", String.valueOf(id), 0);
+        }
+        
         return deletedRows == 1;
     }
 
@@ -402,5 +509,24 @@ public class ShowServiceImpl implements ShowService {
          * 与getById的区别：不限制status，可以查询已取消的演出
          */
         return showMapper.getByIdForAdmin(id);
+    }
+
+    /**
+     * 获取热门演出排行榜
+     * 
+     * 功能说明：
+     * - 根据用户查看演出的次数统计热门度
+     * - 返回Top N热门演出ID列表
+     * 
+     * @param limit 返回数量限制
+     * @return 热门演出ID列表
+     */
+    public List<Long> getPopularShows(int limit) {
+        String rankKey = "rank:shows:popularity";
+        Set<Object> showIds = redisUtil.zReverseRange(rankKey, 0, limit - 1);
+        
+        return showIds.stream()
+                .map(id -> Long.valueOf(id.toString()))
+                .collect(Collectors.toList());
     }
 }

@@ -6,11 +6,13 @@ import com.mianzi.showticketsystem.model.entity.Order;
 import com.mianzi.showticketsystem.model.entity.Show;
 import com.mianzi.showticketsystem.service.OrderService;
 import com.mianzi.showticketsystem.service.ShowService;
+import com.mianzi.showticketsystem.util.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import com.mianzi.showticketsystem.model.entity.PageResult;
 import java.util.List;
 
@@ -65,6 +67,22 @@ public class OrderServiceImpl implements OrderService {
     private ShowService showService;
 
     /**
+     * 注入Redis工具类
+     * 
+     * 用于分布式锁和限流
+     */
+    @Autowired
+    private RedisUtil redisUtil;
+
+    /**
+     * 注入Redis库存服务
+     * 
+     * 用于Redis库存管理
+     */
+    @Autowired
+    private RedisStockService redisStockService;
+
+    /**
      * 预订票务的核心方法，确保减库存和创建订单在同一个事务中
      * 
      * 业务逻辑：
@@ -104,87 +122,107 @@ public class OrderServiceImpl implements OrderService {
     public Order createOrder(Long userId, Long showId, Integer quantity) {
 
         /**
-         * 步骤1：业务校验和获取价格
+         * 步骤0：分布式锁防止重复下单
          */
-
-        /**
-         * 步骤1.1：获取演出信息，用于价格计算
-         * 
-         * 查询演出信息，获取价格和库存
-         */
-        Show show = showService.getShowById(showId);
-
-        if (show == null) {
-            /**
-             * 演出不存在或状态不正常
-             * getShowById 已在 Mapper 中通过 status = 1 过滤
-             */
-            return null;
-        }
-
-        /**
-         * 步骤1.2：校验购买数量
-         * 
-         * 购买数量必须大于0
-         */
-        if (quantity == null || quantity <= 0) {
-            return null;
-        }
-
-        /**
-         * 步骤1.3：校验购买数量是否超出当前可用库存
-         * 
-         * 虽然 Mapper 层面会原子性检查，但Service层面也做判断
-         * 提前返回，避免不必要的数据库操作
-         */
-        if (quantity > show.getAvailableTickets()) {
-            /**
-             * 库存不足，返回null
-             */
-            return null;
-        }
-
-        /**
-         * 步骤1.4：计算总金额
-         * 
-         * 从数据库获取实时价格
-         */
-        BigDecimal price = show.getPrice();
+        String lockKey = "lock:order:" + userId + ":" + showId;
+        String lockValue = UUID.randomUUID().toString();
+        boolean lockAcquired = redisUtil.tryLock(lockKey, lockValue, 10); // 10秒超时
         
-        /**
-         * BigDecimal 说明：
-         * 
-         * BigDecimal 可以精确地表示和计算任何大小和精度的小数
-         * 专门用于避免浮点数计算误差
-         * 
-         * 计算总金额（价格 * 数量）
-         * 
-         * multiply()：乘法运算，返回新的BigDecimal对象
-         */
-        BigDecimal totalPrice = price.multiply(new BigDecimal(quantity));
-
-        /**
-         * 步骤2：减库存操作
-         */
-
-        /**
-         * 步骤2.1：调用 ShowMapper 执行原子性减库存操作
-         * 
-         * updateStock()方法会：
-         * 1. 检查库存是否足够
-         * 2. 原子性减少库存
-         * 
-         * 如果库存不足或演出状态不对，该操作将返回 0
-         */
-        int updatedRows = showMapper.updateStock(showId, quantity);
-
-        if (updatedRows == 0) {
-            /**
-             * 减库存失败，可能是并发抢购导致库存不足
-             * 直接返回 null，事务会自动回滚
-             */
-            return null;
+        if (!lockAcquired) {
+            // 获取锁失败，可能是重复提交
+            throw new RuntimeException("请勿重复提交订单，请稍后再试");
         }
+
+        try {
+            /**
+             * 步骤1：业务校验和获取价格
+             */
+
+            /**
+             * 步骤1.1：获取演出信息，用于价格计算
+             * 
+             * 查询演出信息，获取价格和库存
+             */
+            Show show = showService.getShowById(showId);
+
+            if (show == null) {
+                /**
+                 * 演出不存在或状态不正常
+                 * getShowById 已在 Mapper 中通过 status = 1 过滤
+                 */
+                return null;
+            }
+
+            /**
+             * 步骤1.2：校验购买数量
+             * 
+             * 购买数量必须大于0
+             */
+            if (quantity == null || quantity <= 0) {
+                return null;
+            }
+
+            /**
+             * 步骤1.3：使用Redis检查库存（快速检查）
+             */
+            Integer redisStock = redisStockService.getStock(showId);
+            if (redisStock == null || quantity > redisStock) {
+                /**
+                 * Redis库存不足，返回null
+                 */
+                return null;
+            }
+
+            /**
+             * 步骤1.4：计算总金额
+             * 
+             * 从数据库获取实时价格
+             */
+            BigDecimal price = show.getPrice();
+            
+            /**
+             * BigDecimal 说明：
+             * 
+             * BigDecimal 可以精确地表示和计算任何大小和精度的小数
+             * 专门用于避免浮点数计算误差
+             * 
+             * 计算总金额（价格 * 数量）
+             * 
+             * multiply()：乘法运算，返回新的BigDecimal对象
+             */
+            BigDecimal totalPrice = price.multiply(new BigDecimal(quantity));
+
+            /**
+             * 步骤2：使用Redis原子操作减库存
+             */
+
+            /**
+             * 步骤2.1：使用Redis原子操作扣减库存
+             * 
+             * Redis的decrement是原子操作，可以防止超卖
+             */
+            Long remaining = redisStockService.decreaseStock(showId, quantity);
+
+            if (remaining < 0) {
+                /**
+                 * Redis库存扣减失败，库存不足
+                 * 直接返回 null
+                 */
+                return null;
+            }
+
+            /**
+             * 步骤2.2：同步扣减数据库库存（保证数据一致性）
+             */
+            int updatedRows = showMapper.updateStock(showId, quantity);
+
+            if (updatedRows == 0) {
+                /**
+                 * 数据库库存扣减失败，回滚Redis库存
+                 */
+                redisStockService.increaseStock(showId, quantity);
+                return null;
+            }
 
         /**
          * 步骤3：创建订单记录
@@ -222,21 +260,23 @@ public class OrderServiceImpl implements OrderService {
          */
         int result = orderMapper.insert(order);
 
-        if (result == 1) {
-            /**
-             * 订单创建成功，返回订单对象
-             * 
-             * order.getId()会返回数据库生成的主键ID
-             */
-            return order;
-        } else {
-            /**
-             * 订单插入失败，抛出异常触发事务回滚
-             * 
-             * 抛出异常后，@Transactional 会自动回滚之前的所有操作
-             * 包括减库存操作，库存也会恢复
-             */
-            throw new RuntimeException("创建订单失败，事务回滚。");
+            if (result == 1) {
+                /**
+                 * 订单创建成功，返回订单对象
+                 * 
+                 * order.getId()会返回数据库生成的主键ID
+                 */
+                return order;
+            } else {
+                /**
+                 * 订单插入失败，回滚Redis库存并抛出异常触发事务回滚
+                 */
+                redisStockService.increaseStock(showId, quantity);
+                throw new RuntimeException("创建订单失败，事务回滚。");
+            }
+        } finally {
+            // 释放分布式锁
+            redisUtil.releaseLock(lockKey, lockValue);
         }
     }
 
@@ -344,11 +384,16 @@ public class OrderServiceImpl implements OrderService {
         }
 
         /**
-         * 步骤3：返还库存操作
+         * 步骤3：返还库存操作（Redis + 数据库）
          */
 
         /**
-         * 调用 ShowMapper 增加库存
+         * 步骤3.1：先返还Redis库存
+         */
+        redisStockService.increaseStock(order.getShowId(), order.getQuantity());
+
+        /**
+         * 步骤3.2：返还数据库库存
          * 
          * ShowMapper.updateStock 是减库存，我们需要一个对应的增库存方法
          * addStock()方法会增加指定数量的库存
@@ -357,9 +402,9 @@ public class OrderServiceImpl implements OrderService {
 
         if (stockUpdatedRows == 0) {
             /**
-             * 库存返还失败，可能演出已删除或ID错误
-             * 应该抛出异常以回滚事务
+             * 数据库库存返还失败，回滚Redis库存
              */
+            redisStockService.decreaseStock(order.getShowId(), order.getQuantity());
             throw new RuntimeException("返还库存失败，事务回滚");
         }
 

@@ -136,9 +136,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = getTokenFromRequest(request);
         
         /**
-         * 步骤3：验证Token是否有效
+         * 步骤3：验证Token是否有效（包含黑名单检查）
          * 
-         * 如果Token为空或无效，返回401未授权错误
+         * 如果Token为空或无效或已被拉黑，返回401未授权错误
          */
         if (token == null || !jwtUtil.validateToken(token)) {
             /**

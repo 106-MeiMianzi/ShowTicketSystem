@@ -241,19 +241,45 @@ public class UserController {
     }
 
     /**
-     * 退出登录接口
+     * 退出登录接口（将Token加入黑名单）
      * 
      * 请求路径: POST /api/user/logout
      * 
      * 说明：
-     * - JWT是无状态的，客户端删除token即可
-     * - 服务端不需要特殊处理（不需要删除Session等）
+     * - 将当前Token加入Redis黑名单
+     * - Token在黑名单期间无法使用
+     * - 客户端也应该删除本地存储的token
      * 
+     * @param request HTTP请求对象，用于获取Token
      * @return ApiResponse对象，包含成功消息
      */
     @PostMapping("/logout")
-    public ApiResponse logout() {
-        return ApiResponse.success("退出登录成功！请客户端删除本地存储的token。");
+    public ApiResponse logout(HttpServletRequest request) {
+        // 从请求头中获取Token
+        String token = getTokenFromRequest(request);
+        
+        if (token != null) {
+            // 将Token加入黑名单
+            jwtUtil.addTokenToBlacklist(token);
+        }
+        
+        return ApiResponse.success("退出登录成功！Token已失效，请客户端删除本地存储的token。");
+    }
+
+    /**
+     * 从请求头中获取Token（私有方法）
+     * 
+     * @param request HTTP请求对象
+     * @return Token字符串，如果不存在则返回null
+     */
+    private String getTokenFromRequest(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        } else if (bearerToken != null) {
+            return bearerToken;
+        }
+        return null;
     }
 
     /**

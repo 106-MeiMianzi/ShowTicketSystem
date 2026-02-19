@@ -1,8 +1,10 @@
 package com.mianzi.showticketsystem.util;
 
+import com.mianzi.showticketsystem.util.RedisUtil;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -68,6 +70,14 @@ public class JwtUtil {
      */
     @Value("${jwt.expiration:86400000}") // 默认24小时（毫秒）
     private Long expiration;
+
+    /**
+     * 注入Redis工具类
+     * 
+     * 用于Token黑名单管理
+     */
+    @Autowired
+    private RedisUtil redisUtil;
 
     /**
      * 生成JWT Token
@@ -262,22 +272,30 @@ public class JwtUtil {
     }
 
     /**
-     * 验证Token是否有效
+     * 验证Token是否有效（包含黑名单检查）
      * 
-     * 用途：检查Token是否有效（未过期、签名正确）
+     * 用途：检查Token是否有效（未过期、签名正确、未在黑名单中）
      * 
      * @param token JWT Token
-     * @return true表示Token有效，false表示Token无效或已过期
+     * @return true表示Token有效，false表示Token无效或已过期或已被拉黑
      * 
      * 验证内容：
      * 1. Token格式是否正确
      * 2. 签名是否正确（防止篡改）
      * 3. 是否已过期
+     * 4. 是否在黑名单中
      */
     public boolean validateToken(String token) {
         try {
             /**
-             * 解析Token获取Claims
+             * 步骤1：检查Token是否在黑名单中
+             */
+            if (isTokenBlacklisted(token)) {
+                return false;
+            }
+
+            /**
+             * 步骤2：解析Token获取Claims
              */
             Claims claims = getClaimsFromToken(token);
             if (claims == null) {
@@ -285,7 +303,7 @@ public class JwtUtil {
             }
             
             /**
-             * 检查Token是否已过期
+             * 步骤3：检查Token是否已过期
              * 
              * getExpiration()：获取过期时间
              * before(new Date())：检查是否在当前时间之前（已过期）
@@ -298,5 +316,49 @@ public class JwtUtil {
              */
             return false;
         }
+    }
+
+    /**
+     * 将Token加入黑名单（用户登出时调用）
+     * 
+     * @param token JWT Token
+     */
+    public void addTokenToBlacklist(String token) {
+        try {
+            Claims claims = getClaimsFromToken(token);
+            if (claims != null) {
+                Date expiration = claims.getExpiration();
+                long ttl = expiration.getTime() - System.currentTimeMillis();
+                if (ttl > 0) {
+                    // 将Token加入黑名单，TTL设置为Token的剩余过期时间
+                    String blacklistKey = "blacklist:token:" + token;
+                    redisUtil.set(blacklistKey, "1", ttl / 1000); // 转换为秒
+                }
+            }
+        } catch (Exception e) {
+            // 忽略异常，Token可能已过期或无效
+        }
+    }
+
+    /**
+     * 检查Token是否在黑名单中
+     * 
+     * @param token JWT Token
+     * @return true表示Token已被拉黑，false表示Token未被拉黑
+     */
+    public boolean isTokenBlacklisted(String token) {
+        String blacklistKey = "blacklist:token:" + token;
+        return Boolean.TRUE.equals(redisUtil.hasKey(blacklistKey));
+    }
+
+    /**
+     * 从Token中获取过期时间（用于黑名单TTL计算）
+     * 
+     * @param token JWT Token
+     * @return 过期时间，如果Token无效则返回null
+     */
+    public Date getExpirationFromToken(String token) {
+        Claims claims = getClaimsFromToken(token);
+        return claims != null ? claims.getExpiration() : null;
     }
 }

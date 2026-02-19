@@ -2,6 +2,7 @@ package com.mianzi.showticketsystem.controller;
 
 import com.mianzi.showticketsystem.model.entity.PageResult;
 import com.mianzi.showticketsystem.model.entity.Show;
+import com.mianzi.showticketsystem.service.GeoLocationService;
 import com.mianzi.showticketsystem.service.ShowService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -47,6 +48,14 @@ public class ShowController {
      */
     @Autowired
     private ShowService showService;
+
+    /**
+     * 注入地理位置服务
+     * 
+     * 用于根据用户IP返回附近的演出
+     */
+    @Autowired
+    private GeoLocationService geoLocationService;
 
     /**
      * 发布新的演出活动（只有管理员可以操作）
@@ -148,19 +157,20 @@ public class ShowController {
     }
 
     /**
-     * 在首页获取地区和分类演出列表
+     * 在首页获取地区和分类演出列表（根据用户IP返回附近演出）
      * 
      * 请求路径: GET /api/show/home
      * 
      * 功能：
      * - 首页推荐演出
+     * - 根据用户IP自动定位，返回附近的演出
      * - 支持按地区和分类筛选
      * - 支持限制返回数量
      * 
-     * @param region 地区（可选，默认北京）
+     * @param region 地区（可选，如果不提供则根据IP自动定位）
      * @param category 分类（可选）
      * @param limit 限制数量（可选，默认20）
-     * @param request HTTP请求（用于获取用户IP，这里简化处理）
+     * @param request HTTP请求（用于获取用户IP）
      * @return 演出列表
      */
     @GetMapping("/home")
@@ -169,10 +179,63 @@ public class ShowController {
                                     @RequestParam(required = false) Integer limit,
                                     HttpServletRequest request) {
         /**
-         * 如果已登录，可以根据用户IP返回对应地区（这里简化处理，使用传入的region参数）
-         * 如果未指定region，默认返回北京地区
+         * 如果未指定region，尝试根据用户IP自动定位
          */
+        if (region == null || region.isEmpty()) {
+            try {
+                // 获取用户IP
+                String ip = getClientIp(request);
+                // 根据IP获取地理位置
+                double[] location = geoLocationService.getLocationByIp(ip);
+                // 查找附近的演出（50公里范围内）
+                List<Long> nearbyShowIds = geoLocationService.findNearbyShows(
+                        location[0], location[1], 50.0);
+                
+                // 如果有附近的演出，优先返回附近的
+                if (nearbyShowIds != null && !nearbyShowIds.isEmpty()) {
+                    // 根据ID列表查询演出详情
+                    List<Show> nearbyShows = nearbyShowIds.stream()
+                            .map(showId -> showService.getShowById(showId))
+                            .filter(show -> show != null)
+                            .limit(limit != null && limit > 0 ? limit : 20)
+                            .collect(java.util.stream.Collectors.toList());
+                    
+                    if (!nearbyShows.isEmpty()) {
+                        return nearbyShows;
+                    }
+                }
+            } catch (Exception e) {
+                // 定位失败，使用默认地区
+            }
+            // 定位失败或没有附近演出，使用默认地区
+            region = "北京";
+        }
+        
         return showService.getHomeShows(region, category, limit);
+    }
+
+    /**
+     * 获取客户端IP地址
+     * 
+     * @param request HTTP请求
+     * @return IP地址
+     */
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        // 处理多个IP的情况（取第一个）
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        return ip;
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.mianzi.showticketsystem.controller;
 
+import com.mianzi.showticketsystem.annotation.RateLimit;
 import com.mianzi.showticketsystem.model.dto.ApiResponse;
 import com.mianzi.showticketsystem.model.entity.Order;
 import com.mianzi.showticketsystem.model.entity.PageResult;
@@ -63,6 +64,7 @@ public class OrderController {
      * - 用户创建订单（下单）
      * - 需要登录（userId从JWT Token中获取）
      * - 自动减少演出库存
+     * - 限流：每分钟最多5次请求
      * 
      * URL 参数：
      * - showId: 演出ID（必填）
@@ -78,6 +80,7 @@ public class OrderController {
      *         如果失败，返回 {"order": null}
      */
     @PostMapping("/create")
+    @RateLimit(maxRequests = 5, timeWindow = 60, keyPrefix = "rate:order") // 每分钟最多5次
     public ResponseEntity<Map<String, Object>> createOrder(@RequestParam Long showId,
                                                             @RequestParam Integer quantity,
                                                             HttpServletRequest request) {

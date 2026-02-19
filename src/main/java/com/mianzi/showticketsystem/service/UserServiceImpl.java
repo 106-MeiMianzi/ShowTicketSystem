@@ -3,6 +3,7 @@ package com.mianzi.showticketsystem.service;
 import com.mianzi.showticketsystem.mapper.UserMapper;
 import com.mianzi.showticketsystem.model.entity.PageResult;
 import com.mianzi.showticketsystem.model.entity.User;
+import com.mianzi.showticketsystem.util.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -45,6 +46,14 @@ public class UserServiceImpl implements UserService {
      */
     @Autowired
     private UserMapper userMapper;
+
+    /**
+     * 注入Redis工具类
+     * 
+     * 用于缓存用户信息
+     */
+    @Autowired
+    private RedisUtil redisUtil;
 
     /**
      * 实现用户注册/登录方法（合并接口）
@@ -209,17 +218,30 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 实现根据ID获取用户信息的逻辑
+     * 实现根据ID获取用户信息的逻辑（带Redis缓存）
      * 
      * @param id 用户ID
      * @return 用户对象，如果不存在则返回null
      */
     @Override
     public User getUserById(Long id) {
-        /**
-         * 直接调用Mapper层查询用户
-         */
-        return userMapper.selectById(id);
+        String cacheKey = "user:" + id;
+        
+        // 先从Redis获取缓存
+        Object cached = redisUtil.get(cacheKey);
+        if (cached != null && cached instanceof User) {
+            return (User) cached;
+        }
+        
+        // Redis没有缓存，查询数据库
+        User user = userMapper.selectById(id);
+        
+        // 存入Redis缓存，1小时过期
+        if (user != null) {
+            redisUtil.set(cacheKey, user, 3600); // 1小时 = 3600秒
+        }
+        
+        return user;
     }
 
     /**
@@ -267,12 +289,13 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 实现更新用户信息的逻辑
+     * 实现更新用户信息的逻辑（清除相关缓存）
      * 
      * 功能说明：
      * - 更新用户的个人信息
      * - 可以更新部分字段（只更新非空字段）
      * - 自动更新updateTime
+     * - 更新后清除相关缓存
      * 
      * @param user 用户对象，必须包含id，其他字段可选
      * @return 成功返回true，失败返回false
@@ -291,6 +314,12 @@ public class UserServiceImpl implements UserService {
          * result = 0 表示更新失败（用户不存在）
          */
         int result = userMapper.update(user);
+        
+        if (result == 1 && user.getId() != null) {
+            // 清除用户缓存
+            redisUtil.delete("user:" + user.getId());
+        }
+        
         return result == 1;
     }
 

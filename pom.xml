@@ -277,7 +277,23 @@
         </dependency>
         
         <!-- 
-            依赖13: 支付宝 SDK（已注释，未使用）
+            依赖13: Spring Boot Redis Starter
+            作用：集成 Redis 到 Spring Boot，提供缓存、分布式锁、地理位置等功能
+            版本：由父 POM 管理
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        
+        <!-- 
+            依赖14: JSON处理工具（用于Redis序列化）
+            作用：将Java对象序列化为JSON字符串存储到Redis
+            说明：Spring Boot 已内置 Jackson，无需额外添加依赖
+        -->
+        
+        <!-- 
+            依赖15: 支付宝 SDK（已注释，未使用）
             如果需要真实的支付功能，请取消注释并按照 ALIPAY_SDK_SETUP.md 中的说明配置
         -->
         <!-- 支付宝SDK（已注释，使用简化版本的支付服务） -->
