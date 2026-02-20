@@ -137,6 +137,39 @@
         <java.version>17</java.version>
     </properties>
     
+    <!-- ==================== Maven仓库配置 ==================== -->
+    
+    <!-- 
+        <repositories>: 配置Maven仓库地址
+        用于下载项目依赖，优先使用Maven中央仓库（支付宝SDK在这里）
+    -->
+    <repositories>
+        <!-- Maven中央仓库（优先，支付宝SDK在这里） -->
+        <repository>
+            <id>central</id>
+            <name>Maven Central Repository</name>
+            <url>https://repo1.maven.org/maven2</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <!-- 阿里云Maven镜像（备用，国内访问更快） -->
+        <repository>
+            <id>aliyun</id>
+            <name>Aliyun Maven Repository</name>
+            <url>https://maven.aliyun.com/repository/public</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+    
     <!-- ==================== 项目依赖配置 ==================== -->
     
     <!-- 
@@ -304,18 +337,15 @@
         -->
         
         <!-- 
-            依赖15: 支付宝 SDK（已注释，未使用）
-            如果需要真实的支付功能，请取消注释并按照 ALIPAY_SDK_SETUP.md 中的说明配置
+            依赖15: 支付宝 SDK
+            用于集成支付宝沙箱支付功能
+            注意：4.38.120.ALL版本在Maven仓库中可能不存在，使用更新的版本4.39.86.ALL
         -->
-        <!-- 支付宝SDK（已注释，使用简化版本的支付服务） -->
-        <!-- 如果需要真实的支付功能，请取消注释并按照ALIPAY_SDK_SETUP.md中的说明配置 -->
-        <!--
         <dependency>
             <groupId>com.alipay.sdk</groupId>
             <artifactId>alipay-sdk-java</artifactId>
-            <version>4.38.120.ALL</version>
+            <version>4.39.86.ALL</version>
         </dependency>
-        -->
     </dependencies>
 
     <!-- ==================== 构建配置 ==================== -->

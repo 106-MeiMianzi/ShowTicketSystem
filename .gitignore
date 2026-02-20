@@ -35,3 +35,80 @@ build/
 # macOS system files
 .DS_Store
 **/.[Dd]s_Store
+
+### 敏感配置文件（包含密码、密钥等隐私信息）###
+# 应用配置文件（包含数据库密码、JWT密钥、支付宝密钥等）
+src/main/resources/application.properties
+# 应用配置文件的其他格式
+src/main/resources/application.yml
+src/main/resources/application.yaml
+src/main/resources/application-*.properties
+src/main/resources/application-*.yml
+src/main/resources/application-*.yaml
+
+### 支付测试文件（包含订单信息）###
+# 支付测试HTML文件
+payment-test.html
+*.payment-test.html
+
+### 日志文件（可能包含敏感信息）###
+logs/
+*.log
+*.log.*
+
+### 环境变量文件 ###
+.env
+.env.local
+.env.*.local
+
+### 密钥和证书文件 ###
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+*.truststore
+
+### 临时文件和备份文件 ###
+*.tmp
+*.bak
+*.swp
+*~
+.*.swp
+
+### 内网穿透配置文件（如果使用）###
+cpolar.yml
+ngrok.yml
+natapp.yml
+
+### Docker配置文件（可能包含数据库密码等敏感信息）###
+# 如果docker-compose.yml包含真实密码，建议忽略
+# docker-compose.yml
+# docker-compose.*.yml
+# 如果使用环境变量文件，应该忽略
+docker-compose.override.yml
+docker-compose.local.yml
+
+### 数据库相关敏感文件 ###
+# 包含真实数据的SQL文件（如果SQL文件只包含表结构，可以提交）
+*.data.sql
+*.test-data.sql
+
+### IDE和编辑器配置文件（可能包含敏感路径或配置）###
+# Cursor/VSCode 工作区配置
+*.code-workspace
+.cursor/
+
+### 备份和导出文件 ###
+*.backup
+*.export
+*.dump
+
+### 本地测试数据文件 ###
+test-data/
+local-data/
+*.test.json
+*.test.xml
+
+### 敏感文档（如果包含真实账号密码）###
+API测试清单.md

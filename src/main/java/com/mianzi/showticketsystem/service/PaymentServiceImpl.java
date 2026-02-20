@@ -1,5 +1,15 @@
 package com.mianzi.showticketsystem.service;
 
+import com.alipay.api.AlipayClient;
+import com.alipay.api.AlipayConstants;
+import com.alipay.api.DefaultAlipayClient;
+import com.alipay.api.domain.AlipayTradePagePayModel;
+import com.alipay.api.domain.AlipayTradeQueryModel;
+import com.alipay.api.internal.util.AlipaySignature;
+import com.alipay.api.request.AlipayTradePagePayRequest;
+import com.alipay.api.request.AlipayTradeQueryRequest;
+import com.alipay.api.response.AlipayTradeQueryResponse;
+import com.mianzi.showticketsystem.config.AlipayConfig;
 import com.mianzi.showticketsystem.mapper.OrderMapper;
 import com.mianzi.showticketsystem.mapper.ShowMapper;
 import com.mianzi.showticketsystem.mapper.UserMapper;
@@ -24,8 +34,7 @@ import java.util.Map;
  * - 处理支付相关的业务逻辑
  * 
  * 说明：
- * - 这是一个简化版本，不依赖支付宝SDK
- * - 实际项目中需要集成真实的支付SDK
+ * - 集成支付宝SDK实现真实支付功能
  * - 包含定时任务：掉单补偿和超时关单
  */
 @Service
@@ -35,6 +44,22 @@ import java.util.Map;
  * - Spring会自动扫描并创建这个类的实例
  */
 public class PaymentServiceImpl implements PaymentService {
+
+    /**
+     * 注入支付宝客户端
+     * 
+     * 用于调用支付宝API（创建支付订单、查询订单状态等）
+     */
+    @Autowired
+    private AlipayClient alipayClient;
+
+    /**
+     * 注入支付宝配置
+     * 
+     * 用于获取回调地址等配置信息
+     */
+    @Autowired
+    private AlipayConfig alipayConfig;
 
     /**
      * 注入订单Mapper
@@ -69,15 +94,12 @@ public class PaymentServiceImpl implements PaymentService {
     private UserMapper userMapper;
 
     /**
-     * 实现创建支付订单的逻辑（简化版本，不依赖支付宝SDK）
+     * 实现创建支付订单的逻辑（集成支付宝SDK）
      * 
      * 功能说明：
      * - 用户创建支付订单
-     * - 返回支付信息（如支付二维码URL）
-     * 
-     * 注意：
-     * - 这是一个模拟实现，实际项目中需要集成真实的支付SDK
-     * - 实际项目中应该调用支付宝SDK创建支付订单
+     * - 调用支付宝SDK创建支付订单
+     * - 返回支付页面HTML（前端可以直接展示）
      * 
      * @param orderId 订单ID
      * @param userId 用户ID（用于权限校验）
@@ -85,38 +107,92 @@ public class PaymentServiceImpl implements PaymentService {
      */
     @Override
     public Map<String, String> createPayment(Long orderId, Long userId) {
-        /**
-         * 步骤1：查询订单并验证权限
-         */
-        Order order = orderMapper.getByIdAndUserId(orderId, userId);
-        if (order == null || order.getStatus() != 1) {
+        try {
             /**
-             * 订单不存在或状态不对（只有待支付订单才能支付）
+             * 步骤1：查询订单并验证权限
              */
-            return null;
-        }
-        
-        /**
-         * 双重验证：确保返回的订单确实属于当前用户（防止SQL注入或其他安全问题）
-         */
-        if (!order.getUserId().equals(userId)) {
+            Order order = orderMapper.getByIdAndUserId(orderId, userId);
+            if (order == null || order.getStatus() != 1) {
+                /**
+                 * 订单不存在或状态不对（只有待支付订单才能支付）
+                 */
+                return null;
+            }
+            
             /**
-             * 订单不属于当前用户
+             * 双重验证：确保返回的订单确实属于当前用户（防止SQL注入或其他安全问题）
              */
-            return null;
-        }
+            if (!order.getUserId().equals(userId)) {
+                /**
+                 * 订单不属于当前用户
+                 */
+                return null;
+            }
 
-        /**
-         * 步骤2：简化版本：返回模拟的支付URL
-         * 
-         * 实际项目中，这里应该调用支付宝SDK创建支付订单
-         * 返回真实的支付页面URL或二维码URL
-         */
-        Map<String, String> result = new HashMap<>();
-        result.put("payUrl", "http://localhost:8080/payment/mock?orderNo=" + order.getOutTradeNo());
-        result.put("orderNo", order.getOutTradeNo());
-        result.put("message", "这是模拟支付URL，实际项目中需要集成支付宝SDK");
-        return result;
+            /**
+             * 步骤2：查询演出信息，用于支付页面显示
+             */
+            Show show = showMapper.getById(order.getShowId());
+            String subject = show != null ? show.getName() : "演出票务";
+
+            /**
+             * 步骤3：调用支付宝SDK创建支付订单
+             */
+            
+            /**
+             * 步骤3.1：创建支付请求对象
+             */
+            AlipayTradePagePayRequest request = new AlipayTradePagePayRequest();
+            
+            /**
+             * 步骤3.2：设置支付完成后的回调地址
+             * 
+             * notifyUrl：支付完成后，支付宝会调用这个地址通知支付结果（必须）
+             * returnUrl：用户支付完成后跳转的地址（可选）
+             */
+            request.setNotifyUrl(alipayConfig.getNotifyUrl());
+            if (alipayConfig.getReturnUrl() != null && !alipayConfig.getReturnUrl().isEmpty()) {
+                request.setReturnUrl(alipayConfig.getReturnUrl());
+            }
+
+            /**
+             * 步骤3.3：构建支付业务参数
+             */
+            AlipayTradePagePayModel model = new AlipayTradePagePayModel();
+            model.setOutTradeNo(order.getOutTradeNo());  // 商户订单号（必填）
+            model.setTotalAmount(order.getTotalPrice().toString());  // 订单总金额（必填）
+            model.setSubject(subject);  // 订单标题（必填）
+            model.setProductCode("FAST_INSTANT_TRADE_PAY");  // 产品码（固定值，表示电脑网站支付）
+            
+            /**
+             * 步骤3.4：设置业务参数到请求对象
+             */
+            request.setBizModel(model);
+
+            /**
+             * 步骤3.5：调用支付宝API，获取支付页面HTML
+             * 
+             * pageExecute()：执行请求并返回HTML页面
+             * 前端可以直接将这个HTML展示给用户，用户扫码或输入密码完成支付
+             */
+            String payHtml = alipayClient.pageExecute(request).getBody();
+
+            /**
+             * 步骤4：返回支付信息
+             */
+            Map<String, String> result = new HashMap<>();
+            result.put("payHtml", payHtml);  // 支付页面HTML（前端可以直接展示）
+            result.put("orderNo", order.getOutTradeNo());  // 商户订单号
+            result.put("message", "支付订单创建成功，请完成支付");
+            return result;
+        } catch (Exception e) {
+            /**
+             * 捕获异常，记录错误日志
+             */
+            System.err.println("创建支付订单失败: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
     }
 
     /**
@@ -124,6 +200,7 @@ public class PaymentServiceImpl implements PaymentService {
      * 
      * 功能说明：
      * - 接收支付宝的支付回调通知
+     * - 验证签名，确保回调来自支付宝
      * - 更新订单状态和支付信息
      * - 发送支付成功邮件通知
      * 
@@ -140,11 +217,25 @@ public class PaymentServiceImpl implements PaymentService {
     public String handleAlipayCallback(Map<String, String> params) {
         try {
             /**
-             * 步骤1：验证签名（实际项目中需要验证）
+             * 步骤1：验证签名，确保回调请求来自支付宝
              * 
-             * 这里简化处理，实际应该使用支付宝SDK验证签名
-             * 确保回调请求来自支付宝，防止伪造回调
+             * 这是非常重要的安全措施，防止伪造回调
              */
+            boolean signVerified = AlipaySignature.rsaCheckV1(
+                    params,                                    // 回调参数
+                    alipayConfig.getAlipayPublicKey(),         // 支付宝公钥
+                    AlipayConstants.CHARSET_UTF8,              // 字符编码
+                    AlipayConstants.SIGN_TYPE_RSA2             // 签名算法
+            );
+
+            if (!signVerified) {
+                /**
+                 * 签名验证失败，可能是伪造的回调请求
+                 * 记录日志并返回失败
+                 */
+                System.err.println("支付宝回调签名验证失败");
+                return "failure";
+            }
 
             /**
              * 步骤2：从回调参数中提取关键信息
@@ -255,15 +346,13 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     /**
-     * 掉单补偿：查询待支付订单并检查支付宝状态（简化版本）
+     * 掉单补偿：查询待支付订单并检查支付宝状态
      * 
      * 功能说明：
      * - 定时任务，定期检查待支付订单
-     * - 查询支付宝订单状态，补偿掉单情况
-     * 
-     * 注意：
-     * - 实际项目中需要调用支付宝API查询订单状态
+     * - 调用支付宝API查询订单状态
      * - 如果订单在支付宝中已支付，但系统未更新，则更新订单状态
+     * - 补偿支付回调丢失的情况
      */
     @Override
     @Scheduled(fixedRate = 300000)
@@ -280,37 +369,125 @@ public class PaymentServiceImpl implements PaymentService {
      * - fixedDelay：从上次执行结束时间计算
      * - cron：使用cron表达式（更灵活）
      */
+    @Transactional
     public void compensatePendingOrders() {
-        /**
-         * 步骤1：查询30分钟前的待支付订单
-         * 
-         * 只检查创建时间超过30分钟的订单
-         * 避免检查刚创建的订单
-         */
-        LocalDateTime beforeTime = LocalDateTime.now().minusMinutes(30);
-        List<Order> pendingOrders = orderMapper.findPendingOrdersBefore(beforeTime);
+        try {
+            /**
+             * 步骤1：查询30分钟前的待支付订单
+             * 
+             * 只检查创建时间超过30分钟的订单
+             * 避免检查刚创建的订单
+             */
+            LocalDateTime beforeTime = LocalDateTime.now().minusMinutes(30);
+            List<Order> pendingOrders = orderMapper.findPendingOrdersBefore(beforeTime);
 
-        /**
-         * 步骤2：简化版本：这里应该调用支付宝API查询订单状态
-         * 
-         * 实际项目中，需要集成支付宝SDK来查询订单状态
-         * 如果订单在支付宝中已支付，但系统未更新，则更新订单状态
-         */
-        System.out.println("掉单补偿任务执行，待处理订单数: " + pendingOrders.size());
-        // TODO: 集成支付宝SDK后，在这里调用支付宝API查询订单状态
+            System.out.println("掉单补偿任务执行，待处理订单数: " + pendingOrders.size());
+
+            /**
+             * 步骤2：遍历每个订单，查询支付宝状态
+             */
+            for (Order order : pendingOrders) {
+                try {
+                    /**
+                     * 步骤2.1：调用支付宝API查询订单状态
+                     */
+                    AlipayTradeQueryRequest request = new AlipayTradeQueryRequest();
+                    AlipayTradeQueryModel model = new AlipayTradeQueryModel();
+                    model.setOutTradeNo(order.getOutTradeNo());  // 商户订单号
+                    request.setBizModel(model);
+
+                    /**
+                     * 步骤2.2：执行查询请求
+                     */
+                    AlipayTradeQueryResponse response = alipayClient.execute(request);
+
+                    /**
+                     * 步骤2.3：检查查询结果
+                     */
+                    if (response.isSuccess()) {
+                        /**
+                         * 查询成功，获取交易状态
+                         */
+                        String tradeStatus = response.getTradeStatus();
+
+                        /**
+                         * 步骤2.4：如果订单在支付宝中已支付，但系统未更新，则更新订单状态
+                         */
+                        if (("TRADE_SUCCESS".equals(tradeStatus) || "TRADE_FINISHED".equals(tradeStatus))
+                                && order.getStatus() == 1) {
+                            /**
+                             * 订单在支付宝中已支付，但系统状态还是待支付
+                             * 执行补偿逻辑：更新订单状态、保存交易号、发送邮件
+                             */
+                            orderMapper.updateStatusAndPayTime(
+                                    order.getId(),
+                                    order.getUserId(),
+                                    2, // 已支付
+                                    1  // 待支付
+                            );
+
+                            /**
+                             * 更新支付宝交易号
+                             */
+                            String tradeNo = response.getTradeNo();
+                            if (tradeNo != null) {
+                                orderMapper.updateAlipayTradeNo(order.getId(), tradeNo);
+                            }
+
+                            /**
+                             * 发送邮件通知
+                             */
+                            User user = userMapper.selectById(order.getUserId());
+                            if (user != null && user.getEmail() != null && !user.getEmail().isEmpty()) {
+                                Show show = showMapper.getById(order.getShowId());
+                                String showName = show != null ? show.getName() : "演出票务";
+                                
+                                emailService.sendPaymentSuccessEmail(
+                                        user.getEmail(),
+                                        order.getOutTradeNo(),
+                                        showName,
+                                        order.getTotalPrice()
+                                );
+                            }
+
+                            System.out.println("掉单补偿成功，订单号: " + order.getOutTradeNo());
+                        }
+                    } else {
+                        /**
+                         * 查询失败，记录日志
+                         */
+                        System.err.println("查询支付宝订单状态失败，订单号: " + order.getOutTradeNo() 
+                                + ", 错误信息: " + response.getSubMsg());
+                    }
+                } catch (Exception e) {
+                    /**
+                     * 单个订单处理失败，记录日志但不影响其他订单
+                     */
+                    System.err.println("掉单补偿处理订单失败，订单号: " + order.getOutTradeNo() 
+                            + ", 错误: " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            /**
+             * 定时任务执行失败，记录日志
+             */
+            System.err.println("掉单补偿任务执行失败: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /**
-     * 超时关单：关闭超过30分钟未支付的订单（简化版本）
+     * 超时关单：关闭超过30分钟未支付的订单
      * 
      * 功能说明：
      * - 定时任务，定期检查超时的待支付订单
+     * - 先查询支付宝订单状态，确认未支付后再关闭
      * - 关闭超过30分钟未支付的订单
      * - 恢复演出库存
      * 
      * 注意：
-     * - 实际项目中需要先查询支付宝订单状态，确认未支付后再关闭
-     * - 避免关闭已支付但回调失败的订单
+     * - 必须先查询支付宝订单状态，避免关闭已支付但回调失败的订单
+     * - 如果订单在支付宝中已支付，执行掉单补偿逻辑
      */
     @Override
     @Scheduled(fixedRate = 600000)
@@ -324,44 +501,122 @@ public class PaymentServiceImpl implements PaymentService {
      * - 确保关闭订单和恢复库存在同一个事务中执行
      */
     public void closeTimeoutOrders() {
-        /**
-         * 步骤1：查询30分钟前的待支付订单
-         */
-        LocalDateTime beforeTime = LocalDateTime.now().minusMinutes(30);
-        List<Order> pendingOrders = orderMapper.findPendingOrdersBefore(beforeTime);
+        try {
+            /**
+             * 步骤1：查询30分钟前的待支付订单
+             */
+            LocalDateTime beforeTime = LocalDateTime.now().minusMinutes(30);
+            List<Order> pendingOrders = orderMapper.findPendingOrdersBefore(beforeTime);
 
-        /**
-         * 步骤2：简化版本：直接关闭超时订单
-         * 
-         * 实际项目中，应该先调用支付宝API查询订单状态
-         * 如果订单在支付宝中未支付，才执行以下关闭操作
-         */
-        for (Order order : pendingOrders) {
-            try {
-                /**
-                 * TODO: 实际项目中，这里应该先调用支付宝API查询订单状态
-                 * 如果订单在支付宝中未支付，才执行以下关闭操作
-                 */
-                
-                /**
-                 * 步骤2.1：更新订单状态为已取消（3=已取消，1=待支付）
-                 */
-                orderMapper.updateStatus(order.getId(), order.getUserId(), 3, 1);
-                
-                /**
-                 * 步骤2.2：返还库存
-                 * 
-                 * 关闭订单后，需要恢复演出库存
-                 */
-                showMapper.addStock(order.getShowId(), order.getQuantity());
-            } catch (Exception e) {
-                /**
-                 * 捕获异常，记录错误日志
-                 * 
-                 * 单个订单关闭失败不应该影响其他订单的处理
-                 */
-                System.err.println("关闭订单失败: " + e.getMessage());
+            System.out.println("超时关单任务执行，待处理订单数: " + pendingOrders.size());
+
+            /**
+             * 步骤2：遍历每个订单，先查询支付宝状态再决定是否关闭
+             */
+            for (Order order : pendingOrders) {
+                try {
+                    /**
+                     * 步骤2.1：调用支付宝API查询订单状态
+                     */
+                    AlipayTradeQueryRequest request = new AlipayTradeQueryRequest();
+                    AlipayTradeQueryModel model = new AlipayTradeQueryModel();
+                    model.setOutTradeNo(order.getOutTradeNo());  // 商户订单号
+                    request.setBizModel(model);
+
+                    /**
+                     * 步骤2.2：执行查询请求
+                     */
+                    AlipayTradeQueryResponse response = alipayClient.execute(request);
+
+                    /**
+                     * 步骤2.3：检查查询结果
+                     */
+                    if (response.isSuccess()) {
+                        String tradeStatus = response.getTradeStatus();
+
+                        /**
+                         * 步骤2.4：如果订单在支付宝中已支付，执行掉单补偿逻辑
+                         */
+                        if (("TRADE_SUCCESS".equals(tradeStatus) || "TRADE_FINISHED".equals(tradeStatus))
+                                && order.getStatus() == 1) {
+                            /**
+                             * 订单在支付宝中已支付，但系统状态还是待支付
+                             * 执行补偿逻辑：更新订单状态、保存交易号、发送邮件
+                             */
+                            orderMapper.updateStatusAndPayTime(
+                                    order.getId(),
+                                    order.getUserId(),
+                                    2, // 已支付
+                                    1  // 待支付
+                            );
+
+                            /**
+                             * 更新支付宝交易号
+                             */
+                            String tradeNo = response.getTradeNo();
+                            if (tradeNo != null) {
+                                orderMapper.updateAlipayTradeNo(order.getId(), tradeNo);
+                            }
+
+                            /**
+                             * 发送邮件通知
+                             */
+                            User user = userMapper.selectById(order.getUserId());
+                            if (user != null && user.getEmail() != null && !user.getEmail().isEmpty()) {
+                                Show show = showMapper.getById(order.getShowId());
+                                String showName = show != null ? show.getName() : "演出票务";
+                                
+                                emailService.sendPaymentSuccessEmail(
+                                        user.getEmail(),
+                                        order.getOutTradeNo(),
+                                        showName,
+                                        order.getTotalPrice()
+                                );
+                            }
+
+                            System.out.println("超时关单任务中发现已支付订单，执行补偿，订单号: " + order.getOutTradeNo());
+                            continue;  // 已支付，跳过关闭操作
+                        }
+
+                        /**
+                         * 步骤2.5：如果订单在支付宝中未支付或交易关闭，执行关闭操作
+                         */
+                        if ("WAIT_BUYER_PAY".equals(tradeStatus) || "TRADE_CLOSED".equals(tradeStatus)) {
+                            /**
+                             * 订单在支付宝中未支付或已关闭
+                             * 执行关闭操作：更新订单状态、恢复库存
+                             */
+                            orderMapper.updateStatus(order.getId(), order.getUserId(), 3, 1);
+                            
+                            /**
+                             * 返还库存
+                             */
+                            showMapper.addStock(order.getShowId(), order.getQuantity());
+                            
+                            System.out.println("超时关单成功，订单号: " + order.getOutTradeNo());
+                        }
+                    } else {
+                        /**
+                         * 查询失败，记录日志
+                         * 为了安全起见，不关闭订单（可能是网络问题导致查询失败）
+                         */
+                        System.err.println("查询支付宝订单状态失败，订单号: " + order.getOutTradeNo() 
+                                + ", 错误信息: " + response.getSubMsg());
+                    }
+                } catch (Exception e) {
+                    /**
+                     * 单个订单处理失败，记录日志但不影响其他订单
+                     */
+                    System.err.println("超时关单处理订单失败，订单号: " + order.getOutTradeNo() 
+                            + ", 错误: " + e.getMessage());
+                }
             }
+        } catch (Exception e) {
+            /**
+             * 定时任务执行失败，记录日志
+             */
+            System.err.println("超时关单任务执行失败: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
