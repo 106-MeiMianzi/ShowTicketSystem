@@ -75,6 +75,17 @@ public interface UserMapper {
     User selectById(Long id);
 
     /**
+     * 根据微信 openid 查询用户
+     * 
+     * 用途：微信扫码登录时根据 openid 查找用户
+     * 
+     * @param openid 微信 openid
+     * @return 匹配的用户对象，如果不存在则返回 null
+     */
+    @Select("SELECT * FROM user WHERE wechat_openid = #{openid}")
+    User selectByWechatOpenid(String openid);
+
+    /**
      * 插入新用户（注册功能）
      * 
      * 说明：

@@ -4,8 +4,8 @@
 <mapper namespace="com.mianzi.showticketsystem.mapper.UserMapper">
 
     <insert id="insert" parameterType="com.mianzi.showticketsystem.model.entity.User" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO user (username, password, email, phone, real_name, role, status, create_time, update_time)
-        VALUES (#{username}, #{password}, #{email}, #{phone}, #{realName}, #{role}, #{status}, #{createTime}, #{updateTime})
+        INSERT INTO user (username, password, email, phone, real_name, role, status, wechat_openid, create_time, update_time)
+        VALUES (#{username}, #{password}, #{email}, #{phone}, #{realName}, #{role}, #{status}, #{wechatOpenid}, #{createTime}, #{updateTime})
     </insert>
 
     <update id="update">
@@ -25,7 +25,7 @@
 
     <select id="findUsers" resultType="com.mianzi.showticketsystem.model.entity.User">
         SELECT
-            id, username, password, email, phone, real_name, role, status, create_time, update_time
+            id, username, password, email, phone, real_name, role, status, wechat_openid, create_time, update_time
         FROM user
         <where>
             <if test="username != null and username != ''">

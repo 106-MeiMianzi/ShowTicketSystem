@@ -85,11 +85,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final List<String> EXCLUDE_PATHS = Arrays.asList(
             "/api/user/register-or-login",  // 用户注册/登录接口
             "/api/user/login",              // 用户登录接口（如果单独存在）
+            "/api/user/wechat-token",       // 微信扫码登录获取token接口
             "/api/admin/login",             // 管理员登录接口
             "/api/show/home",               // 演出首页（公开）
             "/api/show/search",             // 演出搜索（公开）
             "/api/show/conditions",        // 演出条件查询（公开）
-            "/api/payment/notify"           // 支付回调接口（由支付宝服务器调用，不需要JWT验证）
+            "/api/payment/notify",          // 支付回调接口（由支付宝服务器调用，不需要JWT验证）
+            "/wxlogin",                     // 微信登录相关接口（由wxlogin-spring-boot-starter提供）
+            "/wxverify"                     // 微信验证接口（由wxlogin-spring-boot-starter提供）
     );
 
     /**

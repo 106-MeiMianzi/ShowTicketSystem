@@ -174,6 +174,19 @@ public class User {
     private LocalDateTime updateTime;
 
     /**
+     * 微信 openid（用于微信扫码登录）
+     * 
+     * 数据库字段：wechat_openid VARCHAR(64) UNIQUE
+     * 
+     * 说明：
+     * - 微信用户的唯一标识
+     * - 用于微信扫码登录时识别用户
+     * - 唯一约束，一个 openid 对应一个用户
+     * - 可选字段，只有通过微信登录的用户才有此值
+     */
+    private String wechatOpenid;
+
+    /**
      * 判断当前用户是否是管理员
      * 
      * @return true 如果是管理员（role = 2），false 否则

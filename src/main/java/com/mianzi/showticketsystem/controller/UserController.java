@@ -1,5 +1,6 @@
 package com.mianzi.showticketsystem.controller;
 
+import com.mianzi.showticketsystem.callback.WechatLoginCallback;
 import com.mianzi.showticketsystem.model.dto.ApiResponse;
 import com.mianzi.showticketsystem.model.dto.LoginResponse;
 import com.mianzi.showticketsystem.model.dto.RegisterOrLoginRequest;
@@ -273,6 +274,45 @@ public class UserController {
         }
         
         return ResponseEntity.ok(ApiResponse.success("退出登录成功！Token已失效，请客户端删除本地存储的token。"));
+    }
+
+    /**
+     * 微信扫码登录 - 获取Token接口
+     * 
+     * 请求路径: GET /api/user/wechat-token?sceneId={sceneId}
+     * 
+     * 说明：
+     * - 前端通过 sceneId 查询登录状态成功后，调用此接口获取 JWT Token
+     * - sceneId 由 /wxlogin/scene-id 接口获取
+     * - Token 获取后立即删除，避免重复使用
+     * 
+     * @param sceneId 场景值，用于标识本次登录请求
+     * @return ResponseEntity包含Token和用户信息，如果sceneId无效则返回错误
+     */
+    @GetMapping("/wechat-token")
+    public ResponseEntity<?> getWechatToken(@RequestParam String sceneId) {
+        // 从临时存储中获取并删除 Token
+        String token = WechatLoginCallback.getAndRemoveToken(sceneId);
+        
+        if (token == null) {
+            // Token 不存在或已过期
+            return ResponseEntity.badRequest().body(ApiResponse.failure("未找到登录信息，请重新扫码"));
+        }
+        
+        // 从 Token 中解析用户信息
+        Long userId = jwtUtil.getUserIdFromToken(token);
+        String username = jwtUtil.getUsernameFromToken(token);
+        Integer role = jwtUtil.getRoleFromToken(token);
+        
+        // 返回 Token 和用户信息（格式与 register-or-login 接口保持一致）
+        Map<String, Object> data = new HashMap<>();
+        data.put("token", token);
+        data.put("userId", userId);
+        data.put("username", username);
+        data.put("role", role);
+        data.put("message", "微信登录成功！欢迎，" + username);
+        
+        return ResponseEntity.ok(ApiResponse.success("登录成功", data));
     }
 
     /**
