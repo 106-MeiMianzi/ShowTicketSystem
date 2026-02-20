@@ -2,6 +2,7 @@ package com.mianzi.showticketsystem.controller;
 
 import com.mianzi.showticketsystem.model.dto.ApiResponse;
 import com.mianzi.showticketsystem.model.dto.LoginResponse;
+import com.mianzi.showticketsystem.model.dto.RegisterOrLoginRequest;
 import com.mianzi.showticketsystem.model.entity.Address;
 import com.mianzi.showticketsystem.model.entity.User;
 import com.mianzi.showticketsystem.service.AddressService;
@@ -9,6 +10,7 @@ import com.mianzi.showticketsystem.service.UserService;
 import com.mianzi.showticketsystem.util.JwtUtil;
 import com.mianzi.showticketsystem.util.UsernameValidator;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -90,17 +92,19 @@ public class UserController {
      * 
      * 请求路径: POST /api/user/register-or-login
      * 
-     * 请求参数：
-     * - username: 用户名或邮箱（必填）
-     * - password: 密码（必填）
-     * - email: 邮箱（可选，注册时建议提供）
+     * 请求体（JSON格式）：
+     * {
+     *   "username": "用户名或邮箱（必填）",
+     *   "password": "密码（必填）",
+     *   "email": "邮箱（可选，注册时建议提供）"
+     * }
      * 
-     * 返回：LoginResponse对象，包含Token和用户信息
+     * Content-Type: application/json
      * 
-     * @param username 用户名或邮箱
-     * @param password 密码
-     * @param email 邮箱（可选）
-     * @return LoginResponse对象
+     * 返回：成功时 200 + LoginResponse；参数/校验失败 400；认证失败（密码错误等）401
+     * 
+     * @param request 注册/登录请求对象，包含username、password、email字段
+     * @return ResponseEntity&lt;LoginResponse&gt;，含合适的状态码
      */
     @PostMapping("/register-or-login")
     /**
@@ -108,15 +112,20 @@ public class UserController {
      * - 处理POST请求
      * - 等价于@RequestMapping(method = RequestMethod.POST)
      */
-    public LoginResponse registerOrLogin(@RequestParam String username,
-                                         @RequestParam String password,
-                                         @RequestParam(required = false) String email) {
+    public ResponseEntity<LoginResponse> registerOrLogin(@RequestBody RegisterOrLoginRequest request) {
         /**
-         * @RequestParam 注解说明：
-         * - 从HTTP请求参数中获取值
-         * - required = false 表示参数可选
-         * - 默认required = true，参数必填
+         * @RequestBody 注解说明：
+         * - 从HTTP请求体中获取JSON数据并自动转换为Java对象
+         * - Spring会自动将JSON格式的请求体反序列化为RegisterOrLoginRequest对象
+         * - 前端需要设置Content-Type为application/json
          */
+        
+        /**
+         * 从请求对象中提取参数
+         */
+        String username = request.getUsername();
+        String password = request.getPassword();
+        String email = request.getEmail();
         
         /**
          * 步骤1：基础空值检查
@@ -124,7 +133,7 @@ public class UserController {
          * 验证用户名和密码不能为空
          */
         if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
-            return new LoginResponse(null, null, null, null, "操作失败：用户名或密码不能为空。");
+            return ResponseEntity.badRequest().body(new LoginResponse(null, null, null, null, "操作失败：用户名或密码不能为空。"));
         }
 
         /**
@@ -147,10 +156,10 @@ public class UserController {
                  * 登录成功，生成JWT Token
                  */
                 String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
-                return new LoginResponse(token, user.getId(), user.getUsername(), user.getRole(),
-                        "登录成功！欢迎，" + user.getUsername() + "。您的ID是: " + user.getId());
+                return ResponseEntity.ok(new LoginResponse(token, user.getId(), user.getUsername(), user.getRole(),
+                        "登录成功！欢迎，" + user.getUsername() + "。您的ID是: " + user.getId()));
             } else {
-                return new LoginResponse(null, null, null, null, "操作失败：邮箱或密码错误，或账号已被禁用。");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new LoginResponse(null, null, null, null, "操作失败：邮箱或密码错误，或账号已被禁用。"));
             }
         }
 
@@ -173,14 +182,14 @@ public class UserController {
                  * 已有用户登录成功，允许登录（兼容旧数据）
                  */
                 String token = jwtUtil.generateToken(existingUser.getId(), existingUser.getUsername(), existingUser.getRole());
-                return new LoginResponse(token, existingUser.getId(), existingUser.getUsername(), existingUser.getRole(),
-                        "登录成功！欢迎，" + existingUser.getUsername() + "。您的ID是: " + existingUser.getId());
+                return ResponseEntity.ok(new LoginResponse(token, existingUser.getId(), existingUser.getUsername(), existingUser.getRole(),
+                        "登录成功！欢迎，" + existingUser.getUsername() + "。您的ID是: " + existingUser.getId()));
             } else {
                 /**
                  * 新用户注册，格式不对，拒绝注册
                  */
-                return new LoginResponse(null, null, null, null, 
-                    "注册失败：" + validation.getMessage() + "。用户名规则：长度3-20字符，只能包含字母、数字、下划线和中划线，必须以字母或数字开头。");
+                return ResponseEntity.badRequest().body(new LoginResponse(null, null, null, null,
+                    "注册失败：" + validation.getMessage() + "。用户名规则：长度3-20字符，只能包含字母、数字、下划线和中划线，必须以字母或数字开头。"));
             }
         }
 
@@ -200,7 +209,7 @@ public class UserController {
                 /**
                  * 邮箱已被其他用户使用
                  */
-                return new LoginResponse(null, null, null, null, "操作失败：邮箱已被使用。");
+                return ResponseEntity.badRequest().body(new LoginResponse(null, null, null, null, "操作失败：邮箱已被使用。"));
             }
         }
         
@@ -216,8 +225,8 @@ public class UserController {
              * 操作成功，生成JWT Token
              */
             String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
-            return new LoginResponse(token, user.getId(), user.getUsername(), user.getRole(),
-                    "成功！欢迎，" + user.getUsername() + "。您的ID是: " + user.getId());
+            return ResponseEntity.ok(new LoginResponse(token, user.getId(), user.getUsername(), user.getRole(),
+                    "成功！欢迎，" + user.getUsername() + "。您的ID是: " + user.getId()));
         } else {
             /**
              * 操作失败，判断失败原因
@@ -229,13 +238,13 @@ public class UserController {
                 if (email != null && !email.isEmpty()) {
                     User emailCheck = userService.checkEmailExists(email);
                     if (emailCheck != null) {
-                        return new LoginResponse(null, null, null, null, "操作失败：邮箱已被使用。");
+                        return ResponseEntity.badRequest().body(new LoginResponse(null, null, null, null, "操作失败：邮箱已被使用。"));
                     }
                 }
-                return new LoginResponse(null, null, null, null, "操作失败：注册失败，请检查输入信息。");
+                return ResponseEntity.badRequest().body(new LoginResponse(null, null, null, null, "操作失败：注册失败，请检查输入信息。"));
             } else {
                 // 用户存在但密码错误
-                return new LoginResponse(null, null, null, null, "操作失败：用户名或密码错误。");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new LoginResponse(null, null, null, null, "操作失败：用户名或密码错误。"));
             }
         }
     }
@@ -254,7 +263,7 @@ public class UserController {
      * @return ApiResponse对象，包含成功消息
      */
     @PostMapping("/logout")
-    public ApiResponse logout(HttpServletRequest request) {
+    public ResponseEntity<ApiResponse> logout(HttpServletRequest request) {
         // 从请求头中获取Token
         String token = getTokenFromRequest(request);
         
@@ -263,7 +272,7 @@ public class UserController {
             jwtUtil.addTokenToBlacklist(token);
         }
         
-        return ApiResponse.success("退出登录成功！Token已失效，请客户端删除本地存储的token。");
+        return ResponseEntity.ok(ApiResponse.success("退出登录成功！Token已失效，请客户端删除本地存储的token。"));
     }
 
     /**
@@ -340,7 +349,7 @@ public class UserController {
      * - 处理PUT请求（用于更新资源）
      * - 等价于@RequestMapping(method = RequestMethod.PUT)
      */
-    public ApiResponse updateUser(@RequestBody User user, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse> updateUser(@RequestBody User user, HttpServletRequest request) {
         /**
          * @RequestBody 注解说明：
          * - 从HTTP请求体中获取JSON数据
@@ -353,7 +362,7 @@ public class UserController {
          */
         Long userId = (Long) request.getAttribute("userId");
         if (userId == null) {
-            return ApiResponse.failure("更新失败：请先登录。");
+            return ApiResponse.failureUnauthorized("更新失败：请先登录。");
         }
 
         /**
@@ -373,7 +382,7 @@ public class UserController {
              */
             String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
             if (!user.getEmail().matches(emailRegex)) {
-                return ApiResponse.failure("更新失败：邮箱格式不正确。");
+                return ApiResponse.failureBadRequest("更新失败：邮箱格式不正确。");
             }
         }
 
@@ -394,7 +403,7 @@ public class UserController {
              */
             String phoneRegex = "^1[3-9]\\d{9}$";
             if (!user.getPhone().matches(phoneRegex)) {
-                return ApiResponse.failure("更新失败：手机号格式不正确。手机号应为11位数字，以1开头。");
+                return ApiResponse.failureBadRequest("更新失败：手机号格式不正确。手机号应为11位数字，以1开头。");
             }
         }
 
@@ -406,9 +415,9 @@ public class UserController {
         user.setId(userId);
         boolean success = userService.updateUser(user);
         if (success) {
-            return ApiResponse.success("个人信息更新成功！");
+            return ResponseEntity.ok(ApiResponse.success("个人信息更新成功！"));
         } else {
-            return ApiResponse.failure("更新失败！");
+            return ApiResponse.failureBadRequest("更新失败！");
         }
     }
 
@@ -444,7 +453,7 @@ public class UserController {
      * @return ApiResponse对象，包含地址信息
      */
     @GetMapping("/address/{id}")
-    public ApiResponse getAddressById(@PathVariable Long id, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse> getAddressById(@PathVariable Long id, HttpServletRequest request) {
         /**
          * @PathVariable 注解说明：
          * - 从URL路径中获取变量值
@@ -453,14 +462,14 @@ public class UserController {
         
         Long userId = (Long) request.getAttribute("userId");
         if (userId == null) {
-            return ApiResponse.failure("查询失败：请先登录。");
+            return ApiResponse.failureUnauthorized("查询失败：请先登录。");
         }
         
         /**
          * 参数验证：地址ID必须有效
          */
         if (id == null || id <= 0) {
-            return ApiResponse.failure("查询失败：地址ID无效。");
+            return ApiResponse.failureBadRequest("查询失败：地址ID无效。");
         }
         
         /**
@@ -472,11 +481,11 @@ public class UserController {
              * 双重验证：确保地址确实属于当前用户（防止SQL注入或其他问题）
              */
             if (!address.getUserId().equals(userId)) {
-                return ApiResponse.failure("查询失败：地址不属于您。");
+                return ApiResponse.failureBadRequest("查询失败：地址不属于您。");
             }
-            return ApiResponse.success("查询成功", address);
+            return ResponseEntity.ok(ApiResponse.success("查询成功", address));
         } else {
-            return ApiResponse.failure("查询失败：地址不存在或不属于您。");
+            return ApiResponse.failureNotFound("查询失败：地址不存在或不属于您。");
         }
     }
 
@@ -492,24 +501,24 @@ public class UserController {
      * @return ApiResponse对象，包含操作结果
      */
     @PostMapping("/address")
-    public ApiResponse addAddress(@RequestBody Address address, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse> addAddress(@RequestBody Address address, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
         if (userId == null) {
-            return ApiResponse.failure("添加失败：请先登录。");
+            return ApiResponse.failureUnauthorized("添加失败：请先登录。");
         }
 
         /**
          * 步骤1：验证收货人姓名不能为空
          */
         if (address.getReceiverName() == null || address.getReceiverName().trim().isEmpty()) {
-            return ApiResponse.failure("添加失败！");
+            return ApiResponse.failureBadRequest("添加失败！");
         }
 
         /**
          * 步骤2：验证收货人电话不能为空
          */
         if (address.getReceiverPhone() == null || address.getReceiverPhone().trim().isEmpty()) {
-            return ApiResponse.failure("添加失败！");
+            return ApiResponse.failureBadRequest("添加失败！");
         }
 
         /**
@@ -517,7 +526,7 @@ public class UserController {
          */
         String phoneRegex = "^1[3-9]\\d{9}$";
         if (!address.getReceiverPhone().matches(phoneRegex)) {
-            return ApiResponse.failure("添加失败！");
+            return ApiResponse.failureBadRequest("添加失败！");
         }
 
         /**
@@ -526,9 +535,9 @@ public class UserController {
         address.setUserId(userId);
         boolean success = addressService.addAddress(address);
         if (success) {
-            return ApiResponse.success("收货地址添加成功！");
+            return ResponseEntity.ok(ApiResponse.success("收货地址添加成功！"));
         } else {
-            return ApiResponse.failure("添加失败！");
+            return ApiResponse.failureBadRequest("添加失败！");
         }
     }
 
@@ -545,17 +554,17 @@ public class UserController {
      * @return ApiResponse对象，包含操作结果
      */
     @PutMapping("/address/{id}")
-    public ApiResponse updateAddress(@PathVariable Long id, @RequestBody Address address, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse> updateAddress(@PathVariable Long id, @RequestBody Address address, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
         if (userId == null) {
-            return ApiResponse.failure("更新失败：请先登录。");
+            return ApiResponse.failureUnauthorized("更新失败：请先登录。");
         }
 
         /**
          * 步骤1：如果传了收货人姓名，验证不能为空
          */
         if (address.getReceiverName() != null && address.getReceiverName().trim().isEmpty()) {
-            return ApiResponse.failure("更新失败！");
+            return ApiResponse.failureBadRequest("更新失败！");
         }
 
         /**
@@ -563,14 +572,14 @@ public class UserController {
          */
         if (address.getReceiverPhone() != null) {
             if (address.getReceiverPhone().trim().isEmpty()) {
-                return ApiResponse.failure("更新失败！");
+                return ApiResponse.failureBadRequest("更新失败！");
             }
             /**
              * 验证收货人电话格式（中国手机号格式）
              */
             String phoneRegex = "^1[3-9]\\d{9}$";
             if (!address.getReceiverPhone().matches(phoneRegex)) {
-                return ApiResponse.failure("更新失败！");
+                return ApiResponse.failureBadRequest("更新失败！");
             }
         }
 
@@ -581,9 +590,9 @@ public class UserController {
         address.setUserId(userId);
         boolean success = addressService.updateAddress(address);
         if (success) {
-            return ApiResponse.success("收货地址更新成功！");
+            return ResponseEntity.ok(ApiResponse.success("收货地址更新成功！"));
         } else {
-            return ApiResponse.failure("更新失败！");
+            return ApiResponse.failureBadRequest("更新失败！");
         }
     }
 
@@ -602,10 +611,10 @@ public class UserController {
      * - 处理DELETE请求（用于删除资源）
      * - 等价于@RequestMapping(method = RequestMethod.DELETE)
      */
-    public ApiResponse deleteAddress(@PathVariable Long id, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse> deleteAddress(@PathVariable Long id, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
         if (userId == null) {
-            return ApiResponse.failure("删除失败：请先登录。");
+            return ApiResponse.failureUnauthorized("删除失败：请先登录。");
         }
 
         /**
@@ -613,9 +622,9 @@ public class UserController {
          */
         boolean success = addressService.deleteAddress(id, userId);
         if (success) {
-            return ApiResponse.success("收货地址删除成功！");
+            return ResponseEntity.ok(ApiResponse.success("收货地址删除成功！"));
         } else {
-            return ApiResponse.failure("删除失败！");
+            return ApiResponse.failureBadRequest("删除失败！");
         }
     }
 }

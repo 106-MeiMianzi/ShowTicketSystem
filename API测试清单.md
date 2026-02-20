@@ -67,17 +67,35 @@
 
 **重要提示**：
 - ⚠️ **参数名必须是 `username`**（不是 `account` 或其他名称）
-- ⚠️ **请求方式必须是表单提交**（`application/x-www-form-urlencoded` 或 `form-data`），不是JSON
+- ✅ **支持两种请求格式**：
+  - **表单提交**（`application/x-www-form-urlencoded` 或 `form-data`）
+  - **JSON格式**（`application/json`）⭐ **推荐使用**
 - ✅ 如果 `username` 参数包含 `@` 符号，系统会自动识别为邮箱登录
 
-**Apifox设置步骤**：
+**Apifox设置步骤（表单格式）**：
 1. 请求方式选择：`POST`
 2. URL：`http://localhost:8080/api/user/register-or-login`
-3. Body类型选择：`form-data` 或 `x-www-form-urlencoded`（不要选择JSON）
+3. Body类型选择：`form-data` 或 `x-www-form-urlencoded`
 4. 添加参数：
    - 参数名：`username`，值：`testuser`
    - 参数名：`password`，值：`test123`
    - 参数名：`email`，值：`test@example.com`（可选）
+
+**Apifox设置步骤（JSON格式）** ⭐ **推荐**：
+1. 请求方式选择：`POST`
+2. URL：`http://localhost:8080/api/user/register-or-login`
+3. Body类型选择：`json`
+4. 请求体内容：
+```json
+{
+  "username": "testuser",
+  "password": "test123",
+  "email": "test@example.com"
+}
+```
+   - `username`（必填）：用户名或邮箱
+   - `password`（必填）：密码
+   - `email`（可选）：邮箱
 
 **测试结果**：✅ 已成功
 - username: `testuser`
@@ -89,6 +107,7 @@
 **注意**：
 - 如果之前测试时创建了包含特殊字符的用户名，该用户仍可通过此接口正常登录（兼容旧数据），但新用户注册时会被拒绝。
 - 邮箱登录：如果`username`参数是邮箱格式（包含`@`），则直接进行邮箱登录，不需要用户名格式验证。
+- ⭐ **JSON格式是推荐方式**，更符合RESTful API的常见实践。
 
 ---
 
@@ -101,7 +120,9 @@
 
 **重要提示**：
 - ⚠️ **参数名必须是 `username`**（不是 `account` 或其他名称）
-- ⚠️ **请求方式必须是表单提交**（`application/x-www-form-urlencoded`），不是JSON
+- ✅ **支持两种请求格式**：
+  - **表单提交**（`application/x-www-form-urlencoded` 或 `form-data`）
+  - **JSON格式**（`application/json`）⭐ **推荐使用**
 - ✅ 如果 `username` 参数包含 `@` 符号，系统会自动识别为邮箱登录
 - ✅ 如果 `username` 参数不包含 `@` 符号，系统会识别为用户名登录/注册
 
@@ -109,6 +130,17 @@
 - `username`（必填）：用户名或邮箱（如果包含@则为邮箱）
 - `password`（必填）：密码
 - `email`（可选）：邮箱（仅在注册新用户时使用）
+
+**请求格式说明**：
+- **表单格式**：使用 `form-data` 或 `x-www-form-urlencoded`，参数作为表单字段传递
+- **JSON格式** ⭐：使用 `application/json`，请求体为JSON对象，例如：
+```json
+{
+  "username": "testuser",
+  "password": "test123",
+  "email": "test@example.com"
+}
+```
 
 **用户名验证规则说明**：
 - ✅ **长度限制**：3-20个字符
@@ -148,6 +180,54 @@
 **测试提示**：
 - 2.13 和 2.16 成功后，更新环境变量 `token`（如果token更安全）
 - 后续需要认证的接口都会使用这个token
+- ⭐ **推荐使用JSON格式进行测试**，更符合前端实际使用场景
+
+---
+
+#### 2.5. JSON格式测试用例（新增）⭐
+
+**接口**：`POST /api/user/register-or-login`  
+**请求方式**：`POST`  
+**Content-Type**：`application/json`（JSON格式）
+
+**接口说明**：
+- ✅ 接口已支持JSON格式请求体
+- ✅ 所有业务逻辑与表单格式完全一致
+- ✅ 参数验证规则相同
+
+**Apifox设置步骤**：
+1. 请求方式选择：`POST`
+2. URL：`http://localhost:8080/api/user/register-or-login`
+3. Body类型选择：`json`
+4. 请求体格式：
+```json
+{
+  "username": "testuser",
+  "password": "test123",
+  "email": "test@example.com"
+}
+```
+
+**JSON格式测试用例**：
+
+| 序号 | 用例描述 | JSON请求体 | 目标分类 | 测试标签 | 预期结果 | 测试状态 |
+|------|---------|-----------|---------|---------|---------|---------|
+| 2.5-J1 | JSON格式-注册/登录成功 | `{"username": "testuser", "password": "test123", "email": "test@example.com"}` | 正向 | JSON格式、语义合法 | 返回200，包含token，注册/登录成功 | ⬜ |
+| 2.5-J2 | JSON格式-用户名为空 | `{"username": "", "password": "test123"}` | 负向 | JSON格式、缺失必填字段 | 返回200，message包含"用户名或密码不能为空" | ⬜ |
+| 2.5-J3 | JSON格式-密码为空 | `{"username": "newuser", "password": ""}` | 负向 | JSON格式、缺失必填字段 | 返回200，message包含"用户名或密码不能为空" | ⬜ |
+| 2.5-J4 | JSON格式-缺少username字段 | `{"password": "test123"}` | 负向 | JSON格式、缺失必填字段 | 返回400或200，提示参数错误 | ⬜ |
+| 2.5-J5 | JSON格式-缺少password字段 | `{"username": "testuser"}` | 负向 | JSON格式、缺失必填字段 | 返回400或200，提示参数错误 | ⬜ |
+| 2.5-J6 | JSON格式-邮箱登录成功 | `{"username": "test@example.com", "password": "test123"}` | 正向 | JSON格式、邮箱登录 | 返回200，包含token，登录成功 | ⬜ |
+| 2.5-J7 | JSON格式-用户名格式错误（特殊字符） | `{"username": "test#user", "password": "test123"}` | 负向 | JSON格式、格式错误 | 返回200，message包含"注册失败：用户名只能包含字母、数字、下划线和中划线" | ⬜ |
+| 2.5-J8 | JSON格式-用户名长度过短 | `{"username": "ab", "password": "test123"}` | 负向 | JSON格式、格式错误 | 返回200，message包含"注册失败：用户名长度不能少于3个字符" | ⬜ |
+| 2.5-J9 | JSON格式-仅传必填字段（不传email） | `{"username": "testuser", "password": "test123"}` | 正向 | JSON格式、仅传必要字段 | 返回200，包含token，注册/登录成功 | ⬜ |
+| 2.5-J10 | JSON格式-邮箱已被使用 | `{"username": "newuser", "password": "test123", "email": "test@example.com"}` | 负向 | JSON格式、无效值 | 返回200，message包含"操作失败：邮箱已被使用。" | ⬜ |
+
+**测试说明**：
+- ✅ JSON格式与表单格式的业务逻辑完全一致
+- ✅ 所有验证规则、错误提示都相同
+- ⭐ **推荐使用JSON格式**，更符合RESTful API标准和前端开发习惯
+- 测试时注意设置正确的 `Content-Type: application/json` 请求头
 
 ---
 

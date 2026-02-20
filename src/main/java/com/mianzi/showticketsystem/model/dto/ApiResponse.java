@@ -2,6 +2,8 @@ package com.mianzi.showticketsystem.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 /**
  * 统一API响应DTO（Data Transfer Object）
@@ -158,6 +160,30 @@ public class ApiResponse {
          * - 避免前端处理 null 值的问题
          */
         return new ApiResponse(message, false, new java.util.HashMap<>());
+    }
+
+    /**
+     * 创建失败响应并带 HTTP 400 Bad Request 状态码
+     * 用于参数校验失败、业务校验失败等客户端错误
+     */
+    public static ResponseEntity<ApiResponse> failureBadRequest(String message) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(failure(message));
+    }
+
+    /**
+     * 创建失败响应并带 HTTP 401 Unauthorized 状态码
+     * 用于未登录、Token 无效、账号或密码错误等认证失败
+     */
+    public static ResponseEntity<ApiResponse> failureUnauthorized(String message) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(failure(message));
+    }
+
+    /**
+     * 创建失败响应并带 HTTP 404 Not Found 状态码
+     * 用于资源不存在
+     */
+    public static ResponseEntity<ApiResponse> failureNotFound(String message) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(failure(message));
     }
 }
 

@@ -6,6 +6,7 @@ import com.mianzi.showticketsystem.model.entity.Order;
 import com.mianzi.showticketsystem.model.entity.PageResult;
 import com.mianzi.showticketsystem.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -161,10 +162,10 @@ public class OrderController {
      * @return ApiResponse对象，包含操作结果
      */
     @PutMapping("/cancel")
-    public ApiResponse cancelOrder(@RequestParam Long orderId, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse> cancelOrder(@RequestParam Long orderId, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
         if (userId == null) {
-            return ApiResponse.failure("取消失败：请先登录。");
+            return ApiResponse.failureUnauthorized("取消失败：请先登录。");
         }
 
         /**
@@ -172,9 +173,9 @@ public class OrderController {
          */
         boolean success = orderService.cancelOrder(orderId, userId);
         if (success) {
-            return ApiResponse.success("订单取消成功。库存已返还。");
+            return ResponseEntity.ok(ApiResponse.success("订单取消成功。库存已返还。"));
         } else {
-            return ApiResponse.failure("取消失败！订单不存在、不属于您、或状态不可取消。");
+            return ApiResponse.failureBadRequest("取消失败！订单不存在、不属于您、或状态不可取消。");
         }
     }
 
@@ -198,10 +199,10 @@ public class OrderController {
      * @return ApiResponse对象，包含操作结果
      */
     @PutMapping("/pay")
-    public ApiResponse payOrder(@RequestParam Long orderId, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse> payOrder(@RequestParam Long orderId, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
         if (userId == null) {
-            return ApiResponse.failure("支付失败：请先登录。");
+            return ApiResponse.failureUnauthorized("支付失败：请先登录。");
         }
 
         /**
@@ -209,9 +210,9 @@ public class OrderController {
          */
         boolean success = orderService.payOrder(orderId, userId);
         if (success) {
-            return ApiResponse.success("订单支付成功！");
+            return ResponseEntity.ok(ApiResponse.success("订单支付成功！"));
         } else {
-            return ApiResponse.failure("支付失败！订单不存在、不属于您、或状态不可支付。");
+            return ApiResponse.failureBadRequest("支付失败！订单不存在、不属于您、或状态不可支付。");
         }
     }
 
@@ -373,7 +374,7 @@ public class OrderController {
      * @return 结果信息（字符串）
      */
     @PutMapping("/admin/status")
-    public String updateOrderStatus(
+    public ResponseEntity<String> updateOrderStatus(
             @RequestParam Long orderId,
             @RequestParam Integer newStatus) {
 
@@ -383,9 +384,9 @@ public class OrderController {
         boolean success = orderService.updateOrderStatus(orderId, newStatus);
 
         if (success) {
-            return String.format("订单 ID: %d 状态已更新为: %d。", orderId, newStatus);
+            return ResponseEntity.ok(String.format("订单 ID: %d 状态已更新为: %d。", orderId, newStatus));
         } else {
-            return String.format("更新失败！订单 ID: %d 不存在或操作失败。", orderId);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(String.format("更新失败！订单 ID: %d 不存在或操作失败。", orderId));
         }
     }
 }

@@ -11,6 +11,7 @@ import com.mianzi.showticketsystem.service.ShowService;
 import com.mianzi.showticketsystem.service.UserService;
 import com.mianzi.showticketsystem.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -87,10 +88,10 @@ public class AdminController {
      * 
      * @param account 账号（用户名或邮箱）
      * @param password 密码
-     * @return LoginResponse对象，包含Token和用户信息
+     * @return 成功 200 + LoginResponse；认证失败 401
      */
     @PostMapping("/login")
-    public LoginResponse login(@RequestParam String account, @RequestParam String password) {
+    public ResponseEntity<LoginResponse> login(@RequestParam String account, @RequestParam String password) {
         /**
          * 调用Service层登录方法
          */
@@ -104,13 +105,13 @@ public class AdminController {
              * 登录成功，生成JWT Token
              */
             String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
-            return new LoginResponse(token, user.getId(), user.getUsername(), user.getRole(),
-                    "管理员登录成功！欢迎，" + user.getUsername());
+            return ResponseEntity.ok(new LoginResponse(token, user.getId(), user.getUsername(), user.getRole(),
+                    "管理员登录成功！欢迎，" + user.getUsername()));
         } else {
             /**
-             * 登录失败：账号或密码错误，或不是管理员
+             * 登录失败：账号或密码错误，或不是管理员 → 401
              */
-            return new LoginResponse(null, null, null, null, "登录失败：账号或密码错误，或您不是管理员。");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new LoginResponse(null, null, null, null, "登录失败：账号或密码错误，或您不是管理员。"));
         }
     }
 
@@ -126,8 +127,8 @@ public class AdminController {
      * @return ApiResponse对象，包含成功消息
      */
     @PostMapping("/logout")
-    public ApiResponse logout() {
-        return ApiResponse.success("退出登录成功！请客户端删除本地存储的token。");
+    public ResponseEntity<ApiResponse> logout() {
+        return ResponseEntity.ok(ApiResponse.success("退出登录成功！请客户端删除本地存储的token。"));
     }
 
     // ==================== 用户管理 ====================
@@ -198,7 +199,7 @@ public class AdminController {
      * @return ApiResponse对象，包含操作结果
      */
     @PutMapping("/users/{id}")
-    public ApiResponse updateUser(@PathVariable Long id, @RequestBody User user) {
+    public ResponseEntity<ApiResponse> updateUser(@PathVariable Long id, @RequestBody User user) {
         /**
          * 设置用户ID（确保更新的是指定用户）
          */
@@ -209,9 +210,9 @@ public class AdminController {
          */
         boolean success = userService.updateUser(user);
         if (success) {
-            return ApiResponse.success("用户信息更新成功！");
+            return ResponseEntity.ok(ApiResponse.success("用户信息更新成功！"));
         } else {
-            return ApiResponse.failure("更新失败！");
+            return ApiResponse.failureBadRequest("更新失败！");
         }
     }
 
@@ -229,12 +230,12 @@ public class AdminController {
      * @return ApiResponse对象，包含操作结果
      */
     @PutMapping("/users/{id}/status")
-    public ApiResponse updateUserStatus(@PathVariable Long id, @RequestParam Integer status) {
+    public ResponseEntity<ApiResponse> updateUserStatus(@PathVariable Long id, @RequestParam Integer status) {
         /**
          * 步骤1：验证状态值是否有效（只允许0或1）
          */
         if (status == null || (status != 0 && status != 1)) {
-            return ApiResponse.failure("更新失败！状态值无效，只允许 0（禁用）或 1（正常）。");
+            return ApiResponse.failureBadRequest("更新失败！状态值无效，只允许 0（禁用）或 1（正常）。");
         }
         
         /**
@@ -249,9 +250,9 @@ public class AdminController {
          */
         boolean success = userService.updateUser(user);
         if (success) {
-            return ApiResponse.success("用户状态更新成功！");
+            return ResponseEntity.ok(ApiResponse.success("用户状态更新成功！"));
         } else {
-            return ApiResponse.failure("更新失败！");
+            return ApiResponse.failureBadRequest("更新失败！");
         }
     }
 
@@ -270,19 +271,19 @@ public class AdminController {
      * @return ApiResponse对象，包含操作结果
      */
     @PostMapping("/shows")
-    public ApiResponse addShow(@RequestBody Show show) {
+    public ResponseEntity<ApiResponse> addShow(@RequestBody Show show) {
         /**
          * 步骤1：验证名称为空
          */
         if (show.getName() == null || show.getName().trim().isEmpty()) {
-            return ApiResponse.failure("添加失败！");
+            return ApiResponse.failureBadRequest("添加失败！");
         }
 
         /**
          * 步骤2：验证总票数不能为0或负数
          */
         if (show.getTotalTickets() == null || show.getTotalTickets() <= 0) {
-            return ApiResponse.failure("添加失败！");
+            return ApiResponse.failureBadRequest("添加失败！");
         }
 
         /**
@@ -293,7 +294,7 @@ public class AdminController {
          * - compareTo(ZERO) <= 0 表示小于等于0
          */
         if (show.getPrice() == null || show.getPrice().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            return ApiResponse.failure("添加失败！");
+            return ApiResponse.failureBadRequest("添加失败！");
         }
 
         /**
@@ -301,9 +302,9 @@ public class AdminController {
          */
         boolean success = showService.publishShow(show);
         if (success) {
-            return ApiResponse.success("演出添加成功！ID: " + show.getId());
+            return ResponseEntity.ok(ApiResponse.success("演出添加成功！ID: " + show.getId()));
         } else {
-            return ApiResponse.failure("添加失败！");
+            return ApiResponse.failureBadRequest("添加失败！");
         }
     }
 
@@ -317,7 +318,7 @@ public class AdminController {
      * @return ApiResponse对象，包含操作结果
      */
     @PutMapping("/shows/{id}")
-    public ApiResponse updateShow(@PathVariable Long id, @RequestBody Show show) {
+    public ResponseEntity<ApiResponse> updateShow(@PathVariable Long id, @RequestBody Show show) {
         /**
          * 设置演出ID（确保更新的是指定演出）
          */
@@ -328,9 +329,9 @@ public class AdminController {
          */
         boolean success = showService.updateShow(show);
         if (success) {
-            return ApiResponse.success("演出信息更新成功！");
+            return ResponseEntity.ok(ApiResponse.success("演出信息更新成功！"));
         } else {
-            return ApiResponse.failure("更新失败！");
+            return ApiResponse.failureBadRequest("更新失败！");
         }
     }
 
@@ -407,15 +408,15 @@ public class AdminController {
      * @return ApiResponse对象，包含操作结果
      */
     @DeleteMapping("/shows/{id}")
-    public ApiResponse deleteShow(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse> deleteShow(@PathVariable Long id) {
         /**
          * 调用Service层删除演出
          */
         boolean success = showService.deleteShow(id);
         if (success) {
-            return ApiResponse.success("演出信息删除成功！");
+            return ResponseEntity.ok(ApiResponse.success("演出信息删除成功！"));
         } else {
-            return ApiResponse.failure("删除失败！");
+            return ApiResponse.failureBadRequest("删除失败！");
         }
     }
 
@@ -490,12 +491,12 @@ public class AdminController {
      * @return ApiResponse对象，包含操作结果
      */
     @PutMapping("/orders/{id}/status")
-    public ApiResponse updateOrderStatus(@PathVariable Long id, @RequestParam Integer newStatus) {
+    public ResponseEntity<ApiResponse> updateOrderStatus(@PathVariable Long id, @RequestParam Integer newStatus) {
         /**
          * 步骤1：验证状态值是否有效（只允许1、2、3、4）
          */
         if (newStatus == null || (newStatus < 1 || newStatus > 4)) {
-            return ApiResponse.failure("更新失败！状态值无效，只允许 1（待支付）、2（已支付）、3（已取消）、4（已退款）。");
+            return ApiResponse.failureBadRequest("更新失败！状态值无效，只允许 1（待支付）、2（已支付）、3（已取消）、4（已退款）。");
         }
         
         /**
@@ -505,9 +506,9 @@ public class AdminController {
          */
         boolean success = orderService.updateOrderStatus(id, newStatus);
         if (success) {
-            return ApiResponse.success("订单状态更新成功！");
+            return ResponseEntity.ok(ApiResponse.success("订单状态更新成功！"));
         } else {
-            return ApiResponse.failure("更新失败！");
+            return ApiResponse.failureBadRequest("更新失败！");
         }
     }
 }

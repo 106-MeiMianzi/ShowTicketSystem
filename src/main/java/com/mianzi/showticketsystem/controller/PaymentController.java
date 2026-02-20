@@ -3,6 +3,7 @@ package com.mianzi.showticketsystem.controller;
 import com.mianzi.showticketsystem.model.dto.ApiResponse;
 import com.mianzi.showticketsystem.service.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -61,13 +62,13 @@ public class PaymentController {
      * @return ApiResponse对象，包含支付信息
      */
     @PostMapping("/create")
-    public ApiResponse createPayment(@RequestParam Long orderId, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse> createPayment(@RequestParam Long orderId, HttpServletRequest request) {
         /**
          * 从Request属性中获取userId（由JwtAuthenticationFilter设置）
          */
         Long userId = (Long) request.getAttribute("userId");
         if (userId == null) {
-            return ApiResponse.failure("请先登录");
+            return ApiResponse.failureUnauthorized("请先登录");
         }
         
         /**
@@ -81,13 +82,13 @@ public class PaymentController {
              * 创建支付订单失败
              * 可能原因：订单不存在、不属于该用户、或状态不可支付
              */
-            return ApiResponse.failure("创建支付订单失败！订单不存在、不属于您、或状态不可支付。");
+            return ApiResponse.failureBadRequest("创建支付订单失败！订单不存在、不属于您、或状态不可支付。");
         }
         
         /**
          * 创建支付订单成功，返回支付信息
          */
-        return ApiResponse.success("支付订单创建成功", paymentInfo);
+        return ResponseEntity.ok(ApiResponse.success("支付订单创建成功", paymentInfo));
     }
 
     /**
