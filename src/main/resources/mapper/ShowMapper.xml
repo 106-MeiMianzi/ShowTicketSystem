@@ -6,16 +6,16 @@
     <insert id="insert" keyProperty="id" useGeneratedKeys="true">
         INSERT INTO `show` (
             name, venue, region, category, start_time, end_time, total_tickets,
-            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+            available_tickets, price, session_info, ticket_tier, cover_url, is_on_sale, status, create_time, update_time
         ) VALUES (
                      #{name}, #{venue}, #{region}, #{category}, #{startTime}, #{endTime}, #{totalTickets},
-                     #{availableTickets}, #{price}, #{sessionInfo}, #{ticketTier}, #{isOnSale}, #{status}, #{createTime}, #{updateTime}
+                     #{availableTickets}, #{price}, #{sessionInfo}, #{ticketTier}, #{coverUrl}, #{isOnSale}, #{status}, #{createTime}, #{updateTime}
                  )
     </insert>
     <select id="findAll" resultType="com.mianzi.showticketsystem.model.entity.Show">
         SELECT
             id, name, venue, region, category, start_time, end_time, total_tickets,
-            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+            available_tickets, price, session_info, ticket_tier, cover_url, is_on_sale, status, create_time, update_time
         FROM `show`
         WHERE status = 1
         ORDER BY start_time ASC
@@ -34,7 +34,7 @@
     <select id="getById" resultType="com.mianzi.showticketsystem.model.entity.Show">
         SELECT
             id, name, venue, region, category, start_time, end_time, total_tickets,
-            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+            available_tickets, price, session_info, ticket_tier, cover_url, is_on_sale, status, create_time, update_time
         FROM `show`
         WHERE id = #{id} AND status = 1
     </select>
@@ -62,6 +62,7 @@
             <if test="price != null">price = #{price},</if>
             <if test="sessionInfo != null">session_info = #{sessionInfo},</if>
             <if test="ticketTier != null">ticket_tier = #{ticketTier},</if>
+            <if test="coverUrl != null">cover_url = #{coverUrl},</if>
             <if test="isOnSale != null">is_on_sale = #{isOnSale},</if>
             <if test="status != null">status = #{status},</if>
             update_time = NOW()
@@ -77,7 +78,7 @@
     <select id="findByRegionAndCategory" resultType="com.mianzi.showticketsystem.model.entity.Show">
         SELECT
             id, name, venue, region, category, start_time, end_time, total_tickets,
-            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+            available_tickets, price, session_info, ticket_tier, cover_url, is_on_sale, status, create_time, update_time
         FROM `show`
         WHERE status = 1
         <if test="region != null and region != ''">
@@ -95,7 +96,7 @@
     <select id="searchShows" resultType="com.mianzi.showticketsystem.model.entity.Show">
         SELECT
             id, name, venue, region, category, start_time, end_time, total_tickets,
-            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+            available_tickets, price, session_info, ticket_tier, cover_url, is_on_sale, status, create_time, update_time
         FROM `show`
         WHERE status = 1
         AND (name LIKE CONCAT('%', #{keyword}, '%') OR venue LIKE CONCAT('%', #{keyword}, '%'))
@@ -105,7 +106,7 @@
     <select id="findShowsByConditions" resultType="com.mianzi.showticketsystem.model.entity.Show">
         SELECT
             id, name, venue, region, category, start_time, end_time, total_tickets,
-            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+            available_tickets, price, session_info, ticket_tier, cover_url, is_on_sale, status, create_time, update_time
         FROM `show`
         WHERE status = 1
         <if test="region != null and region != ''">
@@ -133,7 +134,7 @@
     <select id="findShowsForAdmin" resultType="com.mianzi.showticketsystem.model.entity.Show">
         SELECT
             id, name, venue, region, category, start_time, end_time, total_tickets,
-            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+            available_tickets, price, session_info, ticket_tier, cover_url, is_on_sale, status, create_time, update_time
         FROM `show`
         <where>
             <if test="name != null and name != ''">
@@ -175,7 +176,7 @@
     <select id="getByIdForAdmin" resultType="com.mianzi.showticketsystem.model.entity.Show">
         SELECT
             id, name, venue, region, category, start_time, end_time, total_tickets,
-            available_tickets, price, session_info, ticket_tier, is_on_sale, status, create_time, update_time
+            available_tickets, price, session_info, ticket_tier, cover_url, is_on_sale, status, create_time, update_time
         FROM `show`
         WHERE id = #{id}
     </select>

@@ -159,6 +159,15 @@ public class Show {
     private String ticketTier;
 
     /**
+     * 封面图URL
+     *
+     * 数据库字段：cover_url VARCHAR(512)
+     *
+     * 说明：演出列表/详情展示用的封面图链接，由管理员在发布或编辑时填写
+     */
+    private String coverUrl;
+
+    /**
      * 是否已开票
      * 
      * 数据库字段：is_on_sale INT DEFAULT 0

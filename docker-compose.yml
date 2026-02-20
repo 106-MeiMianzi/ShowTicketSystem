@@ -1,54 +1,60 @@
-# MySQL + Spring Boot 应用，一键启动
-# 部署前请把下面的 your_mysql_password 改成你自己的数据库密码
-version: '3.8'
-services:
-  mysql:
-    image: mysql:8.0
-    container_name: showticket-mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: "@showticket"
-      MYSQL_DATABASE: show_ticket_system
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./src/main/resources/db/init_complete.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+# MySQL + Redis + Spring Boot 应用，一键启动
+version: '3.8'   # Compose 文件格式版本
 
-  redis:
-    image: redis:7-alpine
-    container_name: showticket-redis
+services:
+  # ---------- MySQL 数据库服务 ----------
+  mysql:
+    image: mysql:8.0                    # 使用官方 MySQL 8.0 镜像
+    container_name: showticket-mysql   # 容器名称，便于识别和连接
+    environment:
+      MYSQL_ROOT_PASSWORD: "@showticket"  # root 用户密码
+      MYSQL_DATABASE: show_ticket_system # 首次启动时自动创建的数据库名
     ports:
-      - "6379:6379"
+      - "3306:3306"   # 宿主机 3306 映射到容器 3306，供外部或本机连接
     volumes:
-      - redis_data:/data
+      - mysql_data:/var/lib/mysql   # 数据持久化：MySQL 数据目录挂载到命名卷
+      - ./src/main/resources/db/init_complete.sql:/docker-entrypoint-initdb.d/init.sql  # 首次启动时自动执行该 SQL 初始化库表
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]  # 用 mysqladmin ping 检测是否就绪
+      interval: 5s   # 每 5 秒检查一次
+      timeout: 5s    # 单次检查超时时间
+      retries: 10    # 连续失败 10 次才判为不健康
+
+  # ---------- Redis 缓存服务 ----------
+  redis:
+    image: redis:7-alpine              # 使用 Redis 7 Alpine 版，体积小
+    container_name: showticket-redis   # 容器名称
+    ports:
+      - "6379:6379"   # 宿主机 6379 映射到容器 6379
+    volumes:
+      - redis_data:/data   # 数据持久化：Redis 数据目录挂载到命名卷
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]  # 用 redis-cli ping 检测是否就绪
       interval: 5s
       timeout: 3s
       retries: 5
 
+  # ---------- Spring Boot 应用服务 ----------
   app:
-    build: .
-    container_name: showticket-app
+    build: .                            # 使用当前目录的 Dockerfile 构建镜像
+    container_name: showticket-app      # 容器名称
     ports:
-      - "8080:8080"
+      - "8080:8080"   # 应用 HTTP 端口映射到宿主机 8080
     environment:
+      # 数据源：连接 compose 中的 mysql 服务，库名、编码、时区
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/show_ticket_system?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: "@showticket"
+      # Redis：连接 compose 中的 redis 服务
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
     depends_on:
       mysql:
-        condition: service_healthy
+        condition: service_healthy   # 等 MySQL 健康后再启动
       redis:
-        condition: service_healthy
+        condition: service_healthy   # 等 Redis 健康后再启动
 
+# 命名卷：供上面 mysql_data、redis_data 使用，数据保存在 Docker 管理的位置
 volumes:
   mysql_data:
   redis_data:

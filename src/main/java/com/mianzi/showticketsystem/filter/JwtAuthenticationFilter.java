@@ -5,7 +5,10 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -43,6 +46,9 @@ import java.util.List;
  * - 单例模式，整个应用只有一个实例
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     /**
      * OncePerRequestFilter说明：
      * 
@@ -63,6 +69,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      */
     @Autowired
     private JwtUtil jwtUtil;
+
+    /** 为 true 时 401 响应中返回具体失败原因（仅调试用，生产请关闭） */
+    @Value("${jwt.debug:false}")
+    private boolean jwtDebug;
 
     /**
      * 不需要Token验证的路径列表
@@ -140,21 +150,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
          * 
          * 如果Token为空或无效或已被拉黑，返回401未授权错误
          */
-        if (token == null || !jwtUtil.validateToken(token)) {
-            /**
-             * 设置HTTP状态码为401（未授权）
-             */
+        JwtUtil.TokenValidationResult validation = jwtUtil.validateTokenWithReason(token);
+        if (!validation.isValid()) {
+            log.warn("请求未授权: path={}, tokenPresent={}, reason={}", requestPath, token != null, validation.getReasonForResponse());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            
-            /**
-             * 设置响应内容类型为JSON
-             */
             response.setContentType("application/json;charset=UTF-8");
-            
-            /**
-             * 返回错误消息
-             */
-            response.getWriter().write("{\"error\":\"未授权：请先登录\"}");
+            String reasonJson = "";
+            if (jwtDebug) {
+                String reason = validation.getReasonForResponse();
+                if (reason != null) {
+                    String escaped = reason.replace("\\", "\\\\").replace("\"", "\\\"");
+                    reasonJson = ",\"reason\":\"" + escaped + "\"";
+                }
+            }
+            response.getWriter().write("{\"error\":\"未授权：请先登录\"" + reasonJson + "}");
             return;
         }
 

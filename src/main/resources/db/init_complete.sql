@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS `show` (
     `price` DECIMAL(10,2),
     `session_info` TEXT,
     `ticket_tier` TEXT,
+    `cover_url` VARCHAR(512) COMMENT '封面图URL',
     `is_on_sale` INT DEFAULT 0 COMMENT '1:已开票, 0:未开票',
     `status` INT DEFAULT 1 COMMENT '1:正常, 0:已取消',
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,

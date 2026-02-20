@@ -77,6 +77,7 @@ public class ShowController {
      * - price: 票价（必填）
      * - sessionInfo: 场次信息（可选，JSON格式）
      * - ticketTier: 票档信息（可选，JSON格式）
+     * - coverUrl: 封面图URL（可选）
      * - isOnSale: 是否已开票（可选，1=已开票，0=未开票）
      * 
      * @return 发布结果信息（字符串）
@@ -98,6 +99,7 @@ public class ShowController {
             @RequestParam java.math.BigDecimal price,
             @RequestParam(required = false) String sessionInfo,
             @RequestParam(required = false) String ticketTier,
+            @RequestParam(required = false) String coverUrl,
             @RequestParam(required = false) Integer isOnSale)
     {
         /**
@@ -123,6 +125,7 @@ public class ShowController {
                 .setPrice(price)
                 .setSessionInfo(sessionInfo)
                 .setTicketTier(ticketTier)
+                .setCoverUrl(coverUrl)
                 .setIsOnSale(isOnSale);
 
         /**

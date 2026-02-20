@@ -2,8 +2,12 @@ package com.mianzi.showticketsystem.util;
 
 import com.mianzi.showticketsystem.util.RedisUtil;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -40,6 +44,8 @@ import java.util.Map;
  * - 单例模式，整个应用只有一个实例
  */
 public class JwtUtil {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
 
     /**
      * JWT密钥
@@ -262,12 +268,109 @@ public class JwtUtil {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-        } catch (Exception e) {
-            /**
-             * 捕获所有异常（签名错误、过期、格式错误等）
-             * 返回null表示Token无效
-             */
+        } catch (SignatureException e) {
+            log.warn("JWT 签名无效（Secret 不一致或 Token 被篡改）: {}", e.getMessage());
             return null;
+        } catch (ExpiredJwtException e) {
+            log.warn("JWT 已过期: exp={}", e.getClaims().getExpiration());
+            return null;
+        } catch (Exception e) {
+            log.warn("JWT 解析失败: {} - {}", e.getClass().getSimpleName(), e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 解析 Token 并返回失败原因（用于调试时在 401 响应中返回具体原因）
+     */
+    private ClaimsParseResult getClaimsFromTokenWithReason(String token) {
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return new ClaimsParseResult(claims, null);
+        } catch (SignatureException e) {
+            log.warn("JWT 签名无效（Secret 不一致或 Token 被篡改）: {}", e.getMessage());
+            return new ClaimsParseResult(null, "SIGNATURE_INVALID");
+        } catch (ExpiredJwtException e) {
+            log.warn("JWT 已过期: exp={}", e.getClaims().getExpiration());
+            return new ClaimsParseResult(null, "EXPIRED");
+        } catch (Exception e) {
+            log.warn("JWT 解析失败: {} - {}", e.getClass().getSimpleName(), e.getMessage());
+            return new ClaimsParseResult(null, "PARSE_ERROR");
+        }
+    }
+
+    /**
+     * 校验 Token 并返回结果与失败原因（仅在 jwt.debug=true 时在 401 响应中返回 reason，便于排查）
+     */
+    public TokenValidationResult validateTokenWithReason(String token) {
+        if (token == null || token.isBlank()) {
+            return new TokenValidationResult(false, "NO_TOKEN");
+        }
+        try {
+            if (isTokenBlacklisted(token)) {
+                log.warn("JWT 校验失败: Token 已在黑名单中（可能已登出）");
+                return new TokenValidationResult(false, "BLACKLISTED");
+            }
+        } catch (Exception e) {
+            // Redis连接失败时，降级处理：跳过黑名单检查，继续JWT校验
+            log.warn("Redis连接失败，跳过黑名单检查: {}", e.getMessage());
+        }
+        ClaimsParseResult parseResult = getClaimsFromTokenWithReason(token);
+        if (parseResult.claims == null) {
+            return new TokenValidationResult(false, parseResult.failureReason);
+        }
+        if (parseResult.claims.getExpiration().before(new Date())) {
+            return new TokenValidationResult(false, "EXPIRED");
+        }
+        return new TokenValidationResult(true, null);
+    }
+
+    private static class ClaimsParseResult {
+        final Claims claims;
+        final String failureReason;
+
+        ClaimsParseResult(Claims claims, String failureReason) {
+            this.claims = claims;
+            this.failureReason = failureReason;
+        }
+    }
+
+    /**
+     * 校验结果（含失败原因，用于调试）
+     */
+    public static class TokenValidationResult {
+        private final boolean valid;
+        private final String reason;
+
+        public TokenValidationResult(boolean valid, String reason) {
+            this.valid = valid;
+            this.reason = reason;
+        }
+
+        public boolean isValid() {
+            return valid;
+        }
+
+        /**
+         * 返回对用户/调试友好的中文原因，仅在校验失败时有值
+         */
+        public String getReasonForResponse() {
+            if (reason == null) {
+                return null;
+            }
+            return switch (reason) {
+                case "NO_TOKEN" -> "未携带Token";
+                case "BLACKLISTED" -> "Token已登出或已失效";
+                case "SIGNATURE_INVALID" -> "签名无效（多环境密钥不一致或Token被篡改）";
+                case "EXPIRED" -> "Token已过期";
+                case "PARSE_ERROR" -> "Token解析失败";
+                default -> reason;
+            };
         }
     }
 
@@ -291,6 +394,7 @@ public class JwtUtil {
              * 步骤1：检查Token是否在黑名单中
              */
             if (isTokenBlacklisted(token)) {
+                log.warn("JWT 校验失败: Token 已在黑名单中（可能已登出）");
                 return false;
             }
 
@@ -311,9 +415,7 @@ public class JwtUtil {
              */
             return !claims.getExpiration().before(new Date());
         } catch (Exception e) {
-            /**
-             * 任何异常都表示Token无效
-             */
+            log.warn("JWT 校验异常: {}", e.getMessage());
             return false;
         }
     }
@@ -344,11 +446,20 @@ public class JwtUtil {
      * 检查Token是否在黑名单中
      * 
      * @param token JWT Token
-     * @return true表示Token已被拉黑，false表示Token未被拉黑
+     * @return true表示Token已被拉黑，false表示Token未被拉黑或Redis不可用
+     * 
+     * 说明：Redis连接失败时返回false（降级处理），不阻止JWT校验，仅记录警告日志
      */
     public boolean isTokenBlacklisted(String token) {
-        String blacklistKey = "blacklist:token:" + token;
-        return Boolean.TRUE.equals(redisUtil.hasKey(blacklistKey));
+        try {
+            String blacklistKey = "blacklist:token:" + token;
+            return Boolean.TRUE.equals(redisUtil.hasKey(blacklistKey));
+        } catch (Exception e) {
+            // Redis连接失败时，降级处理：假设Token不在黑名单中，不阻止JWT校验
+            // 这样即使Redis不可用，系统仍能正常工作（只是黑名单功能暂时失效）
+            log.warn("Redis连接失败，跳过黑名单检查: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**
