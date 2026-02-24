@@ -8,6 +8,7 @@ import com.mianzi.showticketsystem.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,6 +41,7 @@ import java.util.Map;
  * - 所有方法的URL都会以/api/order开头
  */
 public class OrderController {
+    // TODO：所有涉及增删改的操作都需要加上注解@Transactional，开启事务
 
     @Autowired
     /**
@@ -125,6 +127,7 @@ public class OrderController {
      *         如果不存在，返回 {"order": null}
      */
     @GetMapping("/details")
+    // TODO：每一个返回体都要单独建立一个dto结构，以复用，提高代码效率
     public ResponseEntity<Map<String, Object>> getOrderDetails(@RequestParam Long orderId, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
         Order order = null;

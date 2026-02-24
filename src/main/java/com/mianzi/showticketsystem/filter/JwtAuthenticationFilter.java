@@ -67,6 +67,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * - 自动注入JwtUtil的实例
      * - 用于生成、验证、解析Token
      */
+    // TODO：所有工具类都需要改，其他地方不赘述了
     @Autowired
     private JwtUtil jwtUtil;
 
@@ -82,6 +83,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * - 登录接口本身不需要Token验证
      * - 首页、搜索等公开功能也不需要Token验证
      */
+    // TODO：直接在WebConfig中设置排除路径就行
     private static final List<String> EXCLUDE_PATHS = Arrays.asList(
             "/api/user/register-or-login",  // 用户注册/登录接口
             "/api/user/login",              // 用户登录接口（如果单独存在）

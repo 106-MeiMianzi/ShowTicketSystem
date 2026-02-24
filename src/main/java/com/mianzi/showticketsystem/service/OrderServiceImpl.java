@@ -170,6 +170,7 @@ public class OrderServiceImpl implements OrderService {
                 /**
                  * Redis库存不足，返回null
                  */
+                // TODO：该报错的地方没报错
                 return null;
             }
 
@@ -532,6 +533,7 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public PageResult<Order> getUserOrderList(Long userId, int pageNum, int pageSize) {
+        // TODO：分页查询推荐使用Mybatis的分页插件
 
         /**
          * 步骤1：参数校验，确保 pageNum 和 pageSize 有效

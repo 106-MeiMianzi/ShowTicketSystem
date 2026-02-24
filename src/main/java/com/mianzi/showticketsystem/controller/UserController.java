@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+// TODO：Controller中的逻辑部分过于冗杂，应该只在controller做简单的参数校验和调用Service方法
 /**
  * 用户接口控制器
  * 
@@ -114,6 +115,7 @@ public class UserController {
      * - 等价于@RequestMapping(method = RequestMethod.POST)
      */
     public ResponseEntity<LoginResponse> registerOrLogin(@RequestBody RegisterOrLoginRequest request) {
+        // TODO：像这个controller里，好几个步骤，可读性太差了，如果哪里有问题要找很久，一眼很难看懂是在做什么，应该要每个步骤都拆成private方法，这样逻辑有几个步骤，就对应几个private方法，一目了然
         /**
          * @RequestBody 注解说明：
          * - 从HTTP请求体中获取JSON数据并自动转换为Java对象
@@ -349,6 +351,8 @@ public class UserController {
      * - 处理GET请求
      * - 等价于@RequestMapping(method = RequestMethod.GET)
      */
+    // TODO：每个需要获取当前用户信息的接口都需要HttpServletRequest作为参数，耦合度高，如果在Service也想要拿到用户信息，还需要在controller通过方法参数传入
+    // TODO：建议在拦截器中获取用户信息后，推荐存在线程上下文ThreadLocal里
     public ResponseEntity<Map<String, Object>> getCurrentUser(HttpServletRequest request) {
         /**
          * 从Request属性中获取userId
@@ -361,6 +365,7 @@ public class UserController {
             /**
              * 未登录，返回null
              */
+            // TODO：未登录应该报错！！！，返回404，并且告诉用户，请登录
             result.put("user", null);
             return ResponseEntity.ok(result);
         }
@@ -473,6 +478,7 @@ public class UserController {
     public List<Address> getUserAddresses(HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("userId");
         if (userId == null) {
+            // TODO：一样的，如果需要登录才能操作的接口，如果没登录都要返回404，并且报错，参考510行
             /**
              * 未登录，返回空列表
              * 

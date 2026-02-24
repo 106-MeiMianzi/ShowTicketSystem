@@ -74,6 +74,7 @@ public class AdminController {
      * 
      * 用于生成JWT Token（管理员登录时）
      */
+    // TODO：工具类应该都要是静态方法，不应该使用注入的方式使用，依赖注入的东西都是有状态的，而工具类是纯粹处理数据，是无状态的
     @Autowired
     private JwtUtil jwtUtil;
 

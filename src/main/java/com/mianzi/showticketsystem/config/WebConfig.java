@@ -120,6 +120,7 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // TODO：这里可以选择哪些路径需要被排除在拦截器之外，不需要你在过滤器中设置EXCLUDE_PATHS
         registry.addInterceptor(rateLimitInterceptor)
                 .addPathPatterns("/api/**"); // 拦截所有API请求
     }

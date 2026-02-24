@@ -70,6 +70,7 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public User registerOrLogin(String username, String password, String email) {
+        // TODO：失败的情况如果是属于业务异常，需要向外throw抛出异常信息
         /**
          * 步骤1：先尝试根据用户名查找用户
          */
